@@ -11,4 +11,3 @@ h5py==2.7.1
 
 patchelf-wrapper==1.0.4
 pycolab==1.2
-baselines==0.1.5

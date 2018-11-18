@@ -8,6 +8,7 @@ PROJECT_DIR=${SCRIPT_DIR}/..
 
 PIP_ENV=${PROJECT_DIR}/py35
 REQ_DIR=${PROJECT_DIR}/requirements
+RES_DIR=${PROJECT_DIR}/resources
 SCRIPT_TO_RUN=${PROJECT_DIR}/$1
 
 # Prepare virtualenv
@@ -22,6 +23,8 @@ for f in "${REQ_DIR}"/*
 do
 	pip3 install -r "$f"
 done
+
+bash "$SCRIPT_DIR"/get_resources.sh
 
 # Run script with environment variables
 PYTHONPATH=${PROJECT_DIR}/src \
