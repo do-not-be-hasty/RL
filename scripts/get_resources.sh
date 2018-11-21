@@ -13,12 +13,3 @@ if [ ! -d "$RES_DIR/environment" ]; then
 	git clone https://github.com/do-not-be-hasty/mazelab.git
 	pip3 install -e "$RES_DIR/environment/mazelab"
 fi
-
-if [ ! -d "$RES_DIR/baselines" ]; then
-	cd "$RES_DIR"
-	
-	git clone https://github.com/openai/baselines.git
-	
-	pip3 install -e "$RES_DIR/baselines"
-fi
-

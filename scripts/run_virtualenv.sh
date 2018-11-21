@@ -19,12 +19,16 @@ fi
 
 source ${PIP_ENV}/bin/activate
 
+echo "Installing requirements..."
+
 for f in "${REQ_DIR}"/*
 do
-	pip3 install -r "$f"
+	pip3 install -r "$f" -q
 done
 
 bash "$SCRIPT_DIR"/get_resources.sh
+
+echo "Requirements installed."
 
 # Run script with environment variables
 PYTHONPATH=${PROJECT_DIR}/src \
