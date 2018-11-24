@@ -23,7 +23,7 @@ echo "Installing requirements..."
 
 for f in "${REQ_DIR}"/*
 do
-	pip3 install -r "$f" -q
+	python3.5 -m pip install -r "$f" -q
 done
 
 bash "$SCRIPT_DIR"/get_resources.sh
