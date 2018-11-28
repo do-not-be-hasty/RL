@@ -157,6 +157,7 @@ class DQN_HER(OffPolicyRLModel):
             obs = obs_dict['observation']
             reset = True
             self.episode_reward = np.zeros((1,))
+            episode_obs = []
 
             for step in range(total_timesteps):
                 if callback is not None:
@@ -186,6 +187,8 @@ class DQN_HER(OffPolicyRLModel):
                 new_obs = new_obs_dict['observation']
                 # Store transition in the replay buffer.
                 self.replay_buffer.add(obs, action, rew, new_obs, float(done))
+                episode_obs.append((obs_dict, action, rew, new_obs_dict))
+                obs_dict = new_obs_dict
                 obs = new_obs
 
                 if writer is not None:
@@ -201,6 +204,18 @@ class DQN_HER(OffPolicyRLModel):
                         obs = obs_dict['observation']
                     episode_rewards.append(0.0)
                     reset = True
+
+                    # episode_obs.append((obs_dict, action, rew, new_obs_dict))
+                    her_goal = episode_obs[-1][3]['achieved_goal']
+                    for (_obs_dict, _action, _rew, _new_obs_dict) in episode_obs:
+                        tmp_rew = self.get_env().compute_reward(_new_obs_dict['achieved_goal'], her_goal)
+                        _done = (_new_obs_dict['observation'] == her_goal)
+                        self.replay_buffer.add(self.get_env().change_obs_goal(_obs_dict['observation'], her_goal), _action, tmp_rew,
+                                               self.get_env().change_obs_goal(_new_obs_dict['observation'], her_goal), float(_done))
+                        if _done:
+                            break
+
+                    episode_obs = []
 
                 if step > self.learning_starts and step % self.train_freq == 0:
                     # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
