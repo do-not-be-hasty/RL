@@ -13,7 +13,16 @@ fi
 
 if [ ! -d "$RES_DIR/environment" ]; then
 	mkdir "$RES_DIR"/environment
-	cd "$RES_DIR"/environment
+fi
+
+cd "$RES_DIR"/environment
+
+if [ ! -d "$RES_DIR/environment/mazelab" ]; then
 	git clone https://github.com/do-not-be-hasty/mazelab.git
 	python3.5 -m pip install -e "$RES_DIR/environment/mazelab"
+fi
+
+if [ ! -d "$RES_DIR/environment/BitFlipper" ]; then
+	git clone https://github.com/JoyChopra1298/BitFlipper.git
+	python3.5 -m pip install -e "$RES_DIR/environment/BitFlipper"
 fi

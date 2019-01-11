@@ -1,3 +1,4 @@
+import random
 from functools import partial
 
 import tensorflow as tf
@@ -206,14 +207,22 @@ class DQN_HER(OffPolicyRLModel):
                     reset = True
 
                     # episode_obs.append((obs_dict, action, rew, new_obs_dict))
-                    her_goal = episode_obs[-1][3]['achieved_goal']
-                    for (_obs_dict, _action, _rew, _new_obs_dict) in episode_obs:
-                        tmp_rew = self.get_env().compute_reward(_new_obs_dict['achieved_goal'], her_goal)
-                        _done = (_new_obs_dict['observation'] == her_goal)
-                        self.replay_buffer.add(self.get_env().change_obs_goal(_obs_dict['observation'], her_goal), _action, tmp_rew,
-                                               self.get_env().change_obs_goal(_new_obs_dict['observation'], her_goal), float(_done))
-                        if _done:
-                            break
+
+                    for rnd_obs in random.sample(episode_obs, 2):
+                        her_goal = rnd_obs[3]['achieved_goal']
+                        for (_obs_dict, _action, _rew, _new_obs_dict) in episode_obs:
+                            tmp_rew = self.get_env().compute_reward(_new_obs_dict['achieved_goal'], her_goal)
+
+                            try:
+                                _done = np.array_equal(_new_obs_dict['observation'], her_goal)
+                            except: # there should be possible exception name
+                                print('array_equal failed')
+                                _done = (_new_obs_dict['observation'] == her_goal)
+                            # print(_done)
+                            self.replay_buffer.add(self.get_env().change_obs_goal(_obs_dict['observation'], her_goal), _action, tmp_rew,
+                                                   self.get_env().change_obs_goal(_new_obs_dict['observation'], her_goal), float(_done))
+                            if _done:
+                                break
 
                     episode_obs = []
 

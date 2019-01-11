@@ -1,15 +1,20 @@
+from functools import partial
+
 import gym
 import numpy as np
 import sys
 from gym_maze.envs import MazeEnv
+from utility import make_env_BitFlipper, make_env_GoalBitFlipper
 from stable_baselines.bench import Monitor
 
-from stable_baselines.common.policies import MlpPolicy as PPO2_Policy
+from stable_baselines.common.policies import MlpPolicy as PPO2_Policy, FeedForwardPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import PPO2, DQN, DDPG
 from stable_baselines.deepq import MlpPolicy as DQN_Policy
 from stable_baselines.ddpg import MlpPolicy as DDPG_Policy
-from stable_baselines.her import HER
+# from stable_baselines.her import HER
+from DQN_HER import DQN_HER as HER
+from baselines import deepq
 from stable_baselines.results_plotter import ts2xy, load_results
 
 from utility import resources_dir, get_cur_time_str
@@ -29,6 +34,13 @@ def callback(_locals, _globals):
         return False
 
     is_printed = False
+
+    try:
+        # For gym.Env, eg HER
+        _locals['self'].get_env().print_rewards_info()
+        is_printed = True
+    except AttributeError:
+        pass
 
     try:
         # For DummyVecEnv, eg PPO2
@@ -51,27 +63,56 @@ def callback(_locals, _globals):
 
     return False
 
-
-def main():
-    env = gym.make('MazeEnv-v0')
+def DQN_model(env):
     env = DummyVecEnv([lambda: env])
+    return DQN(
+        policy=partial(DQN_Policy, layers=[96, 96]),
+        env=env,
+        learning_rate=1e-3,
+        buffer_size=50000,
+        exploration_fraction=0.9,
+        exploration_final_eps=0.05,
+        verbose=1,
+    )
 
-    model = PPO2(
+def HER_model(env):
+    return HER(
+        policy=DQN_Policy,
+        env=env,
+        learning_rate=1e-3,
+        buffer_size=50000,
+        exploration_fraction=0.5,
+        exploration_final_eps=0.05,
+        verbose=1,
+    )
+
+def PPO_model(env):
+    env = DummyVecEnv([lambda: env])
+    return PPO2(
         policy=PPO2_Policy,
         env=env,
         learning_rate=1e-3,
-        # buffer_size=50000,
-        # exploration_fraction=0.1,
-        # exploration_final_eps=0.02,
-        # verbose=1,
+        verbose=1,
     )
 
-    model = model.learn(total_timesteps=100000, callback=callback)
+def main():
+    # env = gym.make('MazeEnv-v1')
+    env = gym.make('GoalMazeEnv-v0')
+    # env = make_env_GoalBitFlipper(n=15, space_seed=0)
+    print(env.reset())
+
+    # model = DQN_model(env)
+    model = HER_model(env)
+    # model = PPO_model(env)
+
+    model = model.learn(total_timesteps=80000,
+                        callback=callback,
+                        )
     model.save(str(resources_dir().joinpath('model.pkl')))
 
-    env.env_method('_set_live_display', True)
-    env.env_method('_set_step_limit', 100)
-    env.env_method('reset_rewards_info')
+    env._set_live_display(True)
+    env._set_step_limit(100)
+    env.reset_rewards_info()
 
     print('--- Evaluation\n')
 
@@ -83,7 +124,7 @@ def main():
 
         if dones:
             obs = env.reset()
-            env.env_method('print_rewards_info')
+            env.print_rewards_info()
             print()
 
 if __name__ == '__main__':
