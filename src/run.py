@@ -97,34 +97,36 @@ def PPO_model(env):
 
 def main():
     # env = gym.make('MazeEnv-v1')
-    env = gym.make('GoalMazeEnv-v0')
-    # env = make_env_GoalBitFlipper(n=15, space_seed=0)
+    # env = gym.make('GoalMazeEnv-v0')
+    env = make_env_GoalBitFlipper(n=5, space_seed=0)
     print(env.reset())
+    print(env.step(0))
 
     # model = DQN_model(env)
     model = HER_model(env)
     # model = PPO_model(env)
 
-    model = model.learn(total_timesteps=80000,
+    model = model.learn(total_timesteps=20000,
                         callback=callback,
                         )
     model.save(str(resources_dir().joinpath('model.pkl')))
 
-    env._set_live_display(True)
-    env._set_step_limit(100)
-    env.reset_rewards_info()
+    # env._set_live_display(True)
+    # env._set_step_limit(100)
+    # env.reset_rewards_info()
 
     print('--- Evaluation\n')
 
     obs = env.reset()
+    print(obs)
     for i in range(1000):
-        action, _states = model.predict(obs)
+        action, _states = model.predict(obs['observation'])
         obs, rewards, dones, info = env.step(action)
         env.render()
 
         if dones:
             obs = env.reset()
-            env.print_rewards_info()
+            # env.print_rewards_info()
             print()
 
 if __name__ == '__main__':
