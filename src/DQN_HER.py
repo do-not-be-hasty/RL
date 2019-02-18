@@ -17,7 +17,6 @@ from stable_baselines.a2c.utils import find_trainable_variables, total_episode_r
 class DQN_HER(OffPolicyRLModel):
     """
     The DQN model class. DQN paper: https://arxiv.org/pdf/1312.5602.pdf
-
     :param policy: (DQNPolicy or str) The policy model to use (MlpPolicy, CnnPolicy, LnMlpPolicy, ...)
     :param env: (Gym environment or str) The environment to learn from (if registered in Gym, can be str)
     :param gamma: (float) discount factor
@@ -154,11 +153,13 @@ class DQN_HER(OffPolicyRLModel):
                                               final_p=self.exploration_final_eps)
 
             episode_rewards = [0.0]
-            obs_dict = self.env.reset()
-            obs = obs_dict['observation']
+            episode_trans = []
+
+            full_obs = self.env.reset()
+            part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
+
             reset = True
             self.episode_reward = np.zeros((1,))
-            episode_obs = []
 
             for step in range(total_timesteps):
                 if callback is not None:
@@ -181,16 +182,15 @@ class DQN_HER(OffPolicyRLModel):
                     kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                     kwargs['update_param_noise_scale'] = True
                 with self.sess.as_default():
-                    action = self.act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
+                    action = self.act(np.array(part_obs)[None], update_eps=update_eps, **kwargs)[0]
                 env_action = action
                 reset = False
-                new_obs_dict, rew, done, _ = self.env.step(env_action)
-                new_obs = new_obs_dict['observation']
+                new_obs, rew, done, _ = self.env.step(env_action)
                 # Store transition in the replay buffer.
-                self.replay_buffer.add(obs, action, rew, new_obs, float(done))
-                episode_obs.append((obs_dict, action, rew, new_obs_dict))
-                obs_dict = new_obs_dict
-                obs = new_obs
+                self.replay_buffer.add(part_obs, action, rew, np.concatenate((new_obs['observation'], new_obs['desired_goal'])), float(done))
+                episode_trans.append((full_obs, action, rew, new_obs))
+                full_obs = new_obs
+                part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
 
                 if writer is not None:
                     ep_rew = np.array([rew]).reshape((1, -1))
@@ -201,30 +201,28 @@ class DQN_HER(OffPolicyRLModel):
                 episode_rewards[-1] += rew
                 if done:
                     if not isinstance(self.env, VecEnv):
-                        obs_dict = self.env.reset()
-                        obs = obs_dict['observation']
-                    episode_rewards.append(0.0)
-                    reset = True
+                        full_obs = self.env.reset()
+                        part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
 
-                    # episode_obs.append((obs_dict, action, rew, new_obs_dict))
+                    # Hindsite experience
+                    for i in range(4):
+                        (_, _, _, goal_obs) = random.choice(episode_trans)
+                        goal = goal_obs['achieved_goal']
 
-                    for rnd_obs in random.sample(episode_obs, 2):
-                        her_goal = rnd_obs[3]['achieved_goal']
-                        for (_obs_dict, _action, _rew, _new_obs_dict) in episode_obs:
-                            tmp_rew = self.get_env().compute_reward(_new_obs_dict['achieved_goal'], her_goal)
-
-                            try:
-                                _done = np.array_equal(_new_obs_dict['observation'], her_goal)
-                            except: # there should be possible exception name
-                                print('array_equal failed')
-                                _done = (_new_obs_dict['observation'] == her_goal)
-                            # print(_done)
-                            self.replay_buffer.add(self.get_env().change_obs_goal(_obs_dict['observation'], her_goal), _action, tmp_rew,
-                                                   self.get_env().change_obs_goal(_new_obs_dict['observation'], her_goal), float(_done))
-                            if _done:
+                        for (obs, action, rew, new_obs) in episode_trans:
+                            if np.array_equal(new_obs['observation'], goal):
+                                self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
+                                                       action, 0., np.concatenate((new_obs['observation'], goal)), 1.)
+                                # print(np.concatenate((obs['observation'], goal)), action, 0., np.concatenate((new_obs['observation'], goal)), 1., '\n')
                                 break
+                            else:
+                                self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
+                                                       action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
+                                # print(np.concatenate((obs['observation'], goal)), action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
 
-                    episode_obs = []
+                    episode_rewards.append(0.0)
+                    episode_trans = []
+                    reset = True
 
                 if step > self.learning_starts and step % self.train_freq == 0:
                     # Minimize the error in Bellman's equation on a batch sampled from replay buffer.

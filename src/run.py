@@ -12,7 +12,6 @@ from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import PPO2, DQN, DDPG
 from stable_baselines.deepq import MlpPolicy as DQN_Policy
 from stable_baselines.ddpg import MlpPolicy as DDPG_Policy
-# from stable_baselines.her import HER
 from DQN_HER import DQN_HER as HER
 from baselines import deepq
 from stable_baselines.results_plotter import ts2xy, load_results
@@ -66,7 +65,7 @@ def callback(_locals, _globals):
 def DQN_model(env):
     env = DummyVecEnv([lambda: env])
     return DQN(
-        policy=partial(DQN_Policy, layers=[96, 96]),
+        policy=partial(DQN_Policy, layers=[256]),
         env=env,
         learning_rate=1e-3,
         buffer_size=50000,
@@ -80,9 +79,9 @@ def HER_model(env):
         policy=DQN_Policy,
         env=env,
         learning_rate=1e-3,
-        buffer_size=50000,
-        exploration_fraction=0.5,
-        exploration_final_eps=0.05,
+        buffer_size=1000000,
+        exploration_fraction=0.05,
+        exploration_final_eps=0.01,
         verbose=1,
     )
 
@@ -96,18 +95,15 @@ def PPO_model(env):
     )
 
 def main():
-    # env = gym.make('MazeEnv-v1')
-    # env = gym.make('GoalMazeEnv-v0')
-    env = make_env_GoalBitFlipper(n=5, space_seed=0)
-    print(env.reset())
-    print(env.step(0))
+    env = make_env_GoalBitFlipper(n=30, space_seed=10)
+    # env = make_env_BitFlipper(n=10, space_seed=10)
 
     # model = DQN_model(env)
     model = HER_model(env)
     # model = PPO_model(env)
 
-    model = model.learn(total_timesteps=20000,
-                        callback=callback,
+    model = model.learn(total_timesteps=10000*30,
+                        # callback=callback,
                         )
     model.save(str(resources_dir().joinpath('model.pkl')))
 
@@ -119,15 +115,25 @@ def main():
 
     obs = env.reset()
     print(obs)
+    succ = 0
+    n_ep = 0
+
     for i in range(1000):
-        action, _states = model.predict(obs['observation'])
+        action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal'])))
+        # action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
         env.render()
 
+        if rewards >= 0:
+            succ += 1
+
         if dones:
+            n_ep += 1
             obs = env.reset()
             # env.print_rewards_info()
             print()
+
+    print('Success rate: ', succ/n_ep)
 
 if __name__ == '__main__':
     main()
