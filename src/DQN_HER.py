@@ -9,7 +9,7 @@ from stable_baselines import logger, deepq
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, TensorboardWriter
 from stable_baselines.common.vec_env import VecEnv
 from stable_baselines.common.schedules import LinearSchedule
-from stable_baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+from episode_replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 from stable_baselines.a2c.utils import find_trainable_variables, total_episode_reward_logger
 
@@ -154,6 +154,7 @@ class DQN_HER(OffPolicyRLModel):
 
             episode_rewards = [0.0]
             episode_trans = []
+            episode_replays = []
 
             full_obs = self.env.reset()
             part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
@@ -187,7 +188,8 @@ class DQN_HER(OffPolicyRLModel):
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
                 # Store transition in the replay buffer.
-                self.replay_buffer.add(part_obs, action, rew, np.concatenate((new_obs['observation'], new_obs['desired_goal'])), float(done))
+                # self.replay_buffer.add(part_obs, action, rew, np.concatenate((new_obs['observation'], new_obs['desired_goal'])), float(done))
+                episode_replays.append((full_obs, action, rew, new_obs, float(done)))
                 episode_trans.append((full_obs, action, rew, new_obs))
                 full_obs = new_obs
                 part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
@@ -204,24 +206,27 @@ class DQN_HER(OffPolicyRLModel):
                         full_obs = self.env.reset()
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
 
-                    # Hindsite experience
-                    for i in range(4):
-                        (_, _, _, goal_obs) = random.choice(episode_trans)
-                        goal = goal_obs['achieved_goal']
+                    self.replay_buffer.add(episode_replays)
 
-                        for (obs, action, rew, new_obs) in episode_trans:
-                            if np.array_equal(new_obs['observation'], goal):
-                                self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
-                                                       action, 0., np.concatenate((new_obs['observation'], goal)), 1.)
-                                # print(np.concatenate((obs['observation'], goal)), action, 0., np.concatenate((new_obs['observation'], goal)), 1., '\n')
-                                break
-                            else:
-                                self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
-                                                       action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
-                                # print(np.concatenate((obs['observation'], goal)), action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
+                    # # Hindsight experience
+                    # for i in range(4):
+                    #     (_, _, _, goal_obs) = random.choice(episode_trans)
+                    #     goal = goal_obs['achieved_goal']
+                    #
+                    #     for (obs, action, rew, new_obs) in episode_trans:
+                    #         if np.array_equal(new_obs['observation'], goal):
+                    #             self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
+                    #                                    action, 0., np.concatenate((new_obs['observation'], goal)), 1.)
+                    #             # print(np.concatenate((obs['observation'], goal)), action, 0., np.concatenate((new_obs['observation'], goal)), 1., '\n')
+                    #             break
+                    #         else:
+                    #             self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
+                    #                                    action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
+                    #             # print(np.concatenate((obs['observation'], goal)), action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
 
                     episode_rewards.append(0.0)
                     episode_trans = []
+                    episode_replays = []
                     reset = True
 
                 if step > self.learning_starts and step % self.train_freq == 0:
