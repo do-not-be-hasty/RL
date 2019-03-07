@@ -77,10 +77,12 @@ def HER_model(env):
     return HER(
         policy=partial(DQN_Policy, layers=[256]),
         env=env,
+        hindsight=1,
         learning_rate=1e-3,
         buffer_size=1000000,
-        exploration_fraction=0.2,
-        exploration_final_eps=0.05,
+        exploration_fraction=0.02,
+        exploration_final_eps=0.02,
+        gamma=0.98,
         verbose=1,
     )
 
@@ -94,7 +96,7 @@ def PPO_model(env):
     )
 
 def main():
-    env = make_env_GoalBitFlipper(n=40, space_seed=15)
+    env = make_env_GoalBitFlipper(n=43, space_seed=15)
     # env = make_env_BitFlipper(n=10, space_seed=10)
 
     # model = DQN_model(env)
@@ -102,12 +104,12 @@ def main():
     # model = PPO_model(env)
 
     try:
-        model = model.learn(total_timesteps=10000*16*40,
+        model = model.learn(total_timesteps=10000*16*43,
                             # callback=callback,
                             )
     except KeyboardInterrupt:
         pass
-    model.save(str(resources_dir().joinpath('model.pkl')))
+    # model.save(str(resources_dir().joinpath('model.pkl')))
 
     # env._set_live_display(True)
     # env._set_step_limit(100)

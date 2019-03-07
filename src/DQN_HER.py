@@ -46,7 +46,7 @@ class DQN_HER(OffPolicyRLModel):
     :param _init_setup_model: (bool) Whether or not to build the network at the creation of the instance
     """
 
-    def __init__(self, policy, env, gamma=0.99, learning_rate=5e-4, buffer_size=50000, exploration_fraction=0.1,
+    def __init__(self, policy, env, hindsight=4, gamma=0.99, learning_rate=5e-4, buffer_size=50000, exploration_fraction=0.1,
                  exploration_final_eps=0.02, train_freq=1, batch_size=32, checkpoint_freq=10000, checkpoint_path=None,
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
@@ -74,6 +74,7 @@ class DQN_HER(OffPolicyRLModel):
         self.buffer_size = buffer_size
         self.learning_rate = learning_rate
         self.gamma = gamma
+        self.hindsight = hindsight
         self.tensorboard_log = tensorboard_log
 
         self.graph = None
@@ -145,7 +146,7 @@ class DQN_HER(OffPolicyRLModel):
                                                         initial_p=self.prioritized_replay_beta0,
                                                         final_p=1.0)
             else:
-                self.replay_buffer = ReplayBuffer(self.buffer_size)
+                self.replay_buffer = ReplayBuffer(self.buffer_size, hindsight=self.hindsight)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.
             self.exploration = LinearSchedule(schedule_timesteps=int(self.exploration_fraction * total_timesteps),

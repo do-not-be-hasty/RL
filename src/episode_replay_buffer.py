@@ -7,7 +7,7 @@ from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
 
 
 class ReplayBuffer(object):
-    def __init__(self, size):
+    def __init__(self, size, hindsight=1):
         """
         Create Replay buffer.
 
@@ -17,6 +17,7 @@ class ReplayBuffer(object):
         self._storage = []
         self._maxsize = size
         self._next_idx = 0
+        self._hindsight = hindsight
 
     def __len__(self):
         return len(self._storage)
@@ -70,7 +71,7 @@ class ReplayBuffer(object):
             if ep_range <= i:
                 ep_range += self._maxsize
 
-            offsets = np.random.choice(ep_range - i, 3)
+            offsets = np.random.choice(ep_range - i, self._hindsight)
 
             for j in offsets:
                 _, _, _, new_obs, _, _ = self._storage[(i+j) % self._maxsize]
@@ -96,7 +97,7 @@ class ReplayBuffer(object):
             - done_mask: (numpy bool) done_mask[i] = 1 if executing act_batch[i] resulted in the end of an episode
                 and 0 otherwise.
         """
-        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size//4)]
+        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size//(self._hindsight+1))]
         return self._encode_sample(idxes)
 
 
