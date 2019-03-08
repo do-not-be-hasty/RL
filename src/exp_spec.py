@@ -14,7 +14,7 @@ def create_experiment_for_spec(parameters):
     project_name = "my-project"
     python_path = '.:some_utils:some/other/utils/path'
     paths_to_dump = ''  # e.g. 'plgrid tensor2tensor', do we need it?
-    tags = ''
+    tags = []
     parameters['git_head'] = get_git_head_info()
     return Experiment(project=project_name, name=name, script=script,
                       parameters=parameters, python_path=python_path,
@@ -32,6 +32,6 @@ params_configurations = get_combinations(params_grid)
 
 
 def spec():
-	experiments = [create_experiment_for_spec(params)
-			for params in params_configurations]
-	return experiments
+    experiments = [create_experiment_for_spec(params)
+                   for params in params_configurations]
+    return experiments

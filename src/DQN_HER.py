@@ -156,6 +156,7 @@ class DQN_HER(OffPolicyRLModel):
             episode_rewards = [0.0]
             episode_trans = []
             episode_replays = []
+            episode_success = [0] * 100
 
             full_obs = self.env.reset()
             part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
@@ -203,6 +204,12 @@ class DQN_HER(OffPolicyRLModel):
 
                 episode_rewards[-1] += rew
                 if done:
+                    if np.array_equal(full_obs['achieved_goal'], full_obs['desired_goal']):
+                        episode_success.append(1.)
+                    else:
+                        episode_success.append(0.)
+                    episode_success = episode_success[1:]
+
                     if not isinstance(self.env, VecEnv):
                         full_obs = self.env.reset()
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
@@ -275,6 +282,7 @@ class DQN_HER(OffPolicyRLModel):
                     logger.record_tabular("steps", step)
                     logger.record_tabular("episodes", num_episodes)
                     logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
+                    logger.record_tabular("100 episode success", np.mean(episode_success))
                     logger.record_tabular("% time spent exploring", int(100 * self.exploration.value(step)))
                     logger.dump_tabular()
 

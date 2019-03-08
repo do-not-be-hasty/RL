@@ -17,47 +17,14 @@ from stable_baselines.results_plotter import ts2xy, load_results
 
 from utility import resources_dir, get_cur_time_str
 
+# from neptune_utils.neptune_utils import get_configuration
+# from neptune_utils.neptune_utils import neptune_logger
 
-n_steps = 0
 
 
 def callback(_locals, _globals):
-    global n_steps
-
-    n_steps += 1
-
-    if n_steps >= 100:
-        n_steps = 0
-    else:
-        return False
-
-    is_printed = False
-
-    try:
-        # For gym.Env, eg HER
-        _locals['self'].get_env().print_rewards_info()
-        is_printed = True
-    except AttributeError:
+    if len(_locals['episode_rewards']) % 1000 == 0:
         pass
-
-    try:
-        # For DummyVecEnv, eg PPO2
-        _locals['self'].get_env().env_method('print_rewards_info')
-        is_printed = True
-    except AttributeError:
-        pass
-
-    try:
-        # For _UnvecWrapper, eg DQN
-        _locals['self'].get_env().venv.env_method('print_rewards_info')
-        is_printed = True
-    except AttributeError:
-        pass
-
-    if not is_printed:
-        print('Cannot print logs')
-
-    print('')
 
     return False
 
@@ -81,7 +48,7 @@ def HER_model(env):
         learning_rate=1e-3,
         buffer_size=1000000,
         exploration_fraction=0.02,
-        exploration_final_eps=0.02,
+        exploration_final_eps=0.0005,
         gamma=0.98,
         verbose=1,
     )
@@ -96,7 +63,9 @@ def PPO_model(env):
     )
 
 def main():
-    env = make_env_GoalBitFlipper(n=43, space_seed=15)
+    # ctx, exp_dir_path = get_configuration()
+
+    env = make_env_GoalBitFlipper(n=45, space_seed=15)
     # env = make_env_BitFlipper(n=10, space_seed=10)
 
     # model = DQN_model(env)
@@ -104,7 +73,7 @@ def main():
     # model = PPO_model(env)
 
     try:
-        model = model.learn(total_timesteps=10000*16*43,
+        model = model.learn(total_timesteps=10000*16*45,
                             # callback=callback,
                             )
     except KeyboardInterrupt:
