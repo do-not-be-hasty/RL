@@ -165,8 +165,6 @@ class DQN_HER(OffPolicyRLModel):
             self.episode_reward = np.zeros((1,))
 
             for step in range(total_timesteps):
-                if callback is not None:
-                    callback(locals(), globals())
                 # Take action and update exploration to the newest value
                 kwargs = {}
                 if not self.param_noise:
@@ -231,6 +229,9 @@ class DQN_HER(OffPolicyRLModel):
                     #             self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
                     #                                    action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
                     #             # print(np.concatenate((obs['observation'], goal)), action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
+
+                    if callback is not None:
+                        callback(locals(), globals())
 
                     episode_rewards.append(0.0)
                     episode_trans = []

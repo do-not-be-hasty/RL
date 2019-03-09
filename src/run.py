@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import gym
@@ -17,16 +18,17 @@ from stable_baselines.results_plotter import ts2xy, load_results
 
 from utility import resources_dir, get_cur_time_str
 
-# from neptune_utils.neptune_utils import get_configuration
-# from neptune_utils.neptune_utils import neptune_logger
-
+from neptune_utils.neptune_utils import get_configuration
+from neptune_utils.neptune_utils import neptune_logger
+from neptune import ChannelType
 
 
 def callback(_locals, _globals):
-    if len(_locals['episode_rewards']) % 1000 == 0:
-        pass
+    if len(_locals['episode_rewards']) % 100 == 0:
+        neptune_logger('success rate', np.mean(_locals['episode_success']))
 
     return False
+
 
 def DQN_model(env):
     env = DummyVecEnv([lambda: env])
@@ -40,18 +42,20 @@ def DQN_model(env):
         verbose=1,
     )
 
+
 def HER_model(env):
     return HER(
         policy=partial(DQN_Policy, layers=[256]),
         env=env,
         hindsight=1,
-        learning_rate=1e-3,
+        learning_rate=1e-4,
         buffer_size=1000000,
         exploration_fraction=0.02,
         exploration_final_eps=0.0005,
         gamma=0.98,
         verbose=1,
     )
+
 
 def PPO_model(env):
     env = DummyVecEnv([lambda: env])
@@ -62,10 +66,16 @@ def PPO_model(env):
         verbose=1,
     )
 
-def main():
-    # ctx, exp_dir_path = get_configuration()
 
-    env = make_env_GoalBitFlipper(n=45, space_seed=15)
+def main():
+    ctx, exp_dir_path = get_configuration()
+    debug_info = ctx.create_channel('debug info', channel_type=ChannelType.TEXT)
+    os.environ['MRUNNER_UNDER_NEPTUNE'] = '1'
+
+    # print(ctx.experiment_id)
+    # print('got delta', ctx.params['delta'], type(ctx.params['delta']))
+
+    env = make_env_GoalBitFlipper(n=80, space_seed=15)
     # env = make_env_BitFlipper(n=10, space_seed=10)
 
     # model = DQN_model(env)
@@ -73,11 +83,11 @@ def main():
     # model = PPO_model(env)
 
     try:
-        model = model.learn(total_timesteps=10000*16*45,
-                            # callback=callback,
+        model = model.learn(total_timesteps=10000*16*80,
+                            callback=callback,
                             )
     except KeyboardInterrupt:
-        pass
+        sys.exit(0)
     # model.save(str(resources_dir().joinpath('model.pkl')))
 
     # env._set_live_display(True)

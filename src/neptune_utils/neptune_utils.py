@@ -43,6 +43,6 @@ def neptune_logger(m, v):
   global _ctx
   assert _ctx is not None, "Run first get_configuration"
   if _ctx.experiment_id is None:
-    print(rf"{m}:{v}")
+    print(m, ':', v)
   else:
     _ctx.channel_send(name=m, x=None, y=v)

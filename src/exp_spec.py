@@ -25,8 +25,8 @@ def create_experiment_for_spec(parameters):
 # Set params_configurations, eg. as combinations of grid.
 # params are also good place for e.g. output path, or git hash
 params_grid = dict(
-  #delta=[0.5, 1],
-  alpha=['a',],
+  # delta=[0.5, 1],
+  n=[15,],
 )
 params_configurations = get_combinations(params_grid)
 
