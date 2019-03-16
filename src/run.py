@@ -36,8 +36,8 @@ def DQN_model(env):
         policy=partial(DQN_Policy, layers=[256]),
         env=env,
         learning_rate=1e-3,
-        buffer_size=50000,
-        exploration_fraction=0.9,
+        buffer_size=1000000,
+        exploration_fraction=0.5,
         exploration_final_eps=0.05,
         verbose=1,
     )
@@ -67,45 +67,21 @@ def PPO_model(env):
     )
 
 
-def main():
-    ctx, exp_dir_path = get_configuration()
-    debug_info = ctx.create_channel('debug info', channel_type=ChannelType.TEXT)
-    os.environ['MRUNNER_UNDER_NEPTUNE'] = '1'
-
-    # print(ctx.experiment_id)
-    # print('got delta', ctx.params['delta'], type(ctx.params['delta']))
-
-    env = make_env_GoalBitFlipper(n=80, space_seed=15)
-    # env = make_env_BitFlipper(n=10, space_seed=10)
-
-    # model = DQN_model(env)
-    model = HER_model(env)
-    # model = PPO_model(env)
-
-    try:
-        model = model.learn(total_timesteps=10000*16*80,
-                            callback=callback,
-                            )
-    except KeyboardInterrupt:
-        sys.exit(0)
-    # model.save(str(resources_dir().joinpath('model.pkl')))
-
-    # env._set_live_display(True)
-    # env._set_step_limit(100)
-    # env.reset_rewards_info()
-
+def evaluate(model, env, steps=1000, verbose=True):
     print('--- Evaluation\n')
 
     obs = env.reset()
-    print(obs)
+    if verbose:
+        print(obs)
     succ = 0
     n_ep = 0
 
-    for i in range(1000):
+    for i in range(steps):
         action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal'])))
         # action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
-        env.render()
+        if verbose:
+            env.render()
 
         if rewards >= 0:
             succ += 1
@@ -113,10 +89,36 @@ def main():
         if dones:
             n_ep += 1
             obs = env.reset()
-            # env.print_rewards_info()
-            print()
+            if verbose:
+                # env.print_rewards_info()
+                print()
 
-    print('Success rate: ', succ/n_ep)
+    print('Success rate: ', succ / n_ep)
+
+
+def learn_BitFlipper_HER():
+    n = 20
+    print("BitFlipper({0}), DQN+HER".format(n))
+
+    env = make_env_GoalBitFlipper(n=n, space_seed=15)
+    model = HER_model(env)
+
+    try:
+        model = model.learn(total_timesteps=10000*16*n,
+                            # callback=callback,
+                            )
+    except KeyboardInterrupt:
+        pass
+
+    evaluate(model, env)
+
+
+def main():
+    ctx, exp_dir_path = get_configuration()
+    debug_info = ctx.create_channel('debug info', channel_type=ChannelType.TEXT)
+    os.environ['MRUNNER_UNDER_NEPTUNE'] = '1'
+
+    learn_BitFlipper_HER()
 
 if __name__ == '__main__':
     main()
