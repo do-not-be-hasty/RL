@@ -5,7 +5,9 @@ import gym
 import numpy as np
 import sys
 # from gym_maze.envs import MazeEnv
-from utility import make_env_BitFlipper, make_env_GoalBitFlipper
+from gym_maze import RandomMazeGenerator
+
+from utility import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze
 from stable_baselines.bench import Monitor
 
 from stable_baselines.common.policies import MlpPolicy as PPO2_Policy, FeedForwardPolicy
@@ -113,12 +115,40 @@ def learn_BitFlipper_HER():
     evaluate(model, env)
 
 
+def learn_Maze_HER():
+    n = 20
+    print("Maze({0}), DQN+HER".format(n))
+
+    env = make_env_GoalMaze(
+        maze_generator=RandomMazeGenerator,
+        width=50,
+        height=50,
+        complexity=.05,
+        density=.025,
+        seed=13,
+        obs_type='discrete',
+        reward_type='sparse',
+        step_limit=100)
+    model = HER_model(env)
+
+    try:
+        model = model.learn(total_timesteps=5000000,
+                            # callback=callback,
+                            )
+    except KeyboardInterrupt:
+        pass
+
+    # env._set_live_display(True)
+    evaluate(model, env)
+
+
 def main():
     ctx, exp_dir_path = get_configuration()
     debug_info = ctx.create_channel('debug info', channel_type=ChannelType.TEXT)
     os.environ['MRUNNER_UNDER_NEPTUNE'] = '1'
 
-    learn_BitFlipper_HER()
+    # learn_BitFlipper_HER()
+    learn_Maze_HER()
 
 if __name__ == '__main__':
     main()
