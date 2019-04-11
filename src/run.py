@@ -16,6 +16,7 @@ from stable_baselines import PPO2, DQN, DDPG
 from stable_baselines.deepq import MlpPolicy as DQN_Policy
 from stable_baselines.ddpg import MlpPolicy as DDPG_Policy
 from DQN_HER import DQN_HER as HER
+from DQN_MTR import DQN_MTR as MTR
 from stable_baselines.results_plotter import ts2xy, load_results
 
 from utility import resources_dir, get_cur_time_str
@@ -28,6 +29,7 @@ from neptune import ChannelType
 def callback(_locals, _globals):
     if len(_locals['episode_rewards']) % 100 == 0:
         neptune_logger('success rate', np.mean(_locals['episode_success']))
+        neptune_logger('distance', np.mean(_locals['episode_finals']))
 
     return False
 
@@ -99,7 +101,7 @@ def evaluate(model, env, steps=1000, verbose=True):
 
 
 def learn_BitFlipper_HER():
-    n = 20
+    n = 15
     print("BitFlipper({0}), DQN+HER".format(n))
 
     env = make_env_GoalBitFlipper(n=n, space_seed=15)
@@ -116,29 +118,58 @@ def learn_BitFlipper_HER():
 
 
 def learn_Maze_HER():
-    n = 20
+    n = 40
     print("Maze({0}), DQN+HER".format(n))
 
     env = make_env_GoalMaze(
         maze_generator=RandomMazeGenerator,
-        width=50,
-        height=50,
+        width=n,
+        height=n,
         complexity=.05,
-        density=.025,
-        seed=13,
+        density=.1,
+        seed=17,
+        obs_type='discrete',
+        reward_type='sparse',
+        step_limit=100)
+    model = HER_model(env)
+
+    print("Initial distance: {0}".format(env._distance_diameter()))
+
+    try:
+        model = model.learn(total_timesteps=3500000,
+                            callback=callback,
+                            )
+    except KeyboardInterrupt:
+        pass
+
+    env._set_live_display(True)
+    evaluate(model, env)
+
+
+def learn_Maze_MTR():
+    n = 10
+    print("Maze({0}), DQN+MTR".format(n))
+
+    env = make_env_GoalMaze(
+        maze_generator=RandomMazeGenerator,
+        width=n,
+        height=n,
+        complexity=.05,
+        density=.1,
+        seed=15,
         obs_type='discrete',
         reward_type='sparse',
         step_limit=100)
     model = HER_model(env)
 
     try:
-        model = model.learn(total_timesteps=5000000,
-                            # callback=callback,
+        model = model.learn(total_timesteps=5000,
+                            callback=callback,
                             )
     except KeyboardInterrupt:
         pass
 
-    # env._set_live_display(True)
+    env._set_live_display(True)
     evaluate(model, env)
 
 
@@ -149,6 +180,7 @@ def main():
 
     # learn_BitFlipper_HER()
     learn_Maze_HER()
+    # learn_Maze_MTR()
 
 if __name__ == '__main__':
     main()

@@ -157,6 +157,7 @@ class DQN_HER(OffPolicyRLModel):
             episode_trans = []
             episode_replays = []
             episode_success = [0] * 100
+            episode_finals = [0] * 100
 
             full_obs = self.env.reset()
             part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
@@ -207,6 +208,9 @@ class DQN_HER(OffPolicyRLModel):
                     else:
                         episode_success.append(0.)
                     episode_success = episode_success[1:]
+
+                    episode_finals.append(self.env._distance_to_goal())
+                    episode_finals = episode_finals[1:]
 
                     if not isinstance(self.env, VecEnv):
                         full_obs = self.env.reset()
