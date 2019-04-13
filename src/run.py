@@ -29,7 +29,7 @@ from neptune import ChannelType
 def callback(_locals, _globals):
     if len(_locals['episode_rewards']) % 100 == 0:
         neptune_logger('success rate', np.mean(_locals['episode_success']))
-        neptune_logger('distance', np.mean(_locals['episode_finals']))
+        # neptune_logger('distance', np.mean(_locals['episode_finals']))
 
     return False
 
@@ -51,10 +51,24 @@ def HER_model(env):
     return HER(
         policy=partial(DQN_Policy, layers=[256]),
         env=env,
-        hindsight=1,
+        hindsight=0.5,
         learning_rate=1e-4,
         buffer_size=1000000,
-        exploration_fraction=0.02,
+        exploration_fraction=0.05,
+        exploration_final_eps=0.0005,
+        gamma=0.98,
+        verbose=1,
+    )
+
+
+def MTR_model(env):
+    return MTR(
+        policy=partial(DQN_Policy, layers=[256]),
+        env=env,
+        hindsight=0.5,
+        learning_rate=1e-4,
+        buffer_size=1000000,
+        exploration_fraction=0.05,
         exploration_final_eps=0.0005,
         gamma=0.98,
         verbose=1,
@@ -136,7 +150,7 @@ def learn_Maze_HER():
     print("Initial distance: {0}".format(env._distance_diameter()))
 
     try:
-        model = model.learn(total_timesteps=3500000,
+        model = model.learn(total_timesteps=2000000,
                             callback=callback,
                             )
     except KeyboardInterrupt:
@@ -160,10 +174,10 @@ def learn_Maze_MTR():
         obs_type='discrete',
         reward_type='sparse',
         step_limit=100)
-    model = HER_model(env)
+    model = MTR_model(env)
 
     try:
-        model = model.learn(total_timesteps=5000,
+        model = model.learn(total_timesteps=20000,
                             callback=callback,
                             )
     except KeyboardInterrupt:
@@ -172,6 +186,11 @@ def learn_Maze_MTR():
     env._set_live_display(True)
     evaluate(model, env)
 
+    # while True:
+    #     l = [int(s) for s in input().split(' ')]
+    #     x = np.concatenate([env._get_discrete_obs(l[0:2]), env._get_discrete_obs(l[2:4])], axis=0)
+    #     print(model.mtr_predict(np.array([x])))
+
 
 def main():
     ctx, exp_dir_path = get_configuration()
@@ -179,8 +198,8 @@ def main():
     os.environ['MRUNNER_UNDER_NEPTUNE'] = '1'
 
     # learn_BitFlipper_HER()
-    learn_Maze_HER()
-    # learn_Maze_MTR()
+    # learn_Maze_HER()
+    learn_Maze_MTR()
 
 if __name__ == '__main__':
     main()

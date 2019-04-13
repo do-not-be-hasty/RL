@@ -68,7 +68,6 @@ class ReplayBuffer(object):
 
                 # print(obses_t[-1], actions[-1], rewards[-1], obses_tp1[-1], dones[-1])
 
-
             push_trans(obs_t['desired_goal'], true_replay=True)
 
             if rep[it] == 0:
@@ -87,8 +86,25 @@ class ReplayBuffer(object):
             # if done == 1:
             #     sys.exit(0)
 
-
         return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
+
+    def _encode_mtr_sample(self, idxes):
+        obses_beg, obses_fin, dist = [], [], []
+
+        for i in idxes:
+            obs_1, _, _, _, _, ep_range = self._storage[i]
+
+            if ep_range <= i:
+                ep_range += self._maxsize
+
+            d = np.random.randint(0, ep_range-i)
+            _, _, _, obs_2, _, _ = self._storage[(i+d) % self._maxsize]
+
+            obses_beg.append(obs_1['observation'])
+            obses_fin.append(obs_2['observation'])
+            dist.append(d+1)
+
+        return np.array(obses_beg), np.array(obses_fin), np.array(dist)
 
     def sample(self, batch_size, **_kwargs):
         """
@@ -105,6 +121,13 @@ class ReplayBuffer(object):
         """
         idxes = [random.randint(0, len(self._storage) - 1) for _ in range(int(batch_size//(self._hindsight+1)))]
         return self._encode_sample(idxes, batch_size)
+
+    def mtr_sample(self, batch_size, **_kwargs):
+        """
+        Sample a batch of experiences for mtr.
+        """
+        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        return self._encode_mtr_sample(idxes)
 
 
 class PrioritizedReplayBuffer(ReplayBuffer):

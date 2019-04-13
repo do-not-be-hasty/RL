@@ -33,6 +33,9 @@ echo "Requirements installed."
 # Run script with environment variables
 PYTHONPATH=${PROJECT_DIR}/src \
 RESOURCES_DIR=${PROJECT_DIR}/resources \
+
+# for profiling
+# python3.5 -m cProfile -o profile.cprof ${SCRIPT_TO_RUN} "${@:2}"
 python3.5 ${SCRIPT_TO_RUN} "${@:2}"
 
 deactivate
