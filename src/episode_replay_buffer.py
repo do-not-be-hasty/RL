@@ -89,10 +89,10 @@ class ReplayBuffer(object):
         return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
 
     def _encode_mtr_sample(self, idxes):
-        obses_beg, obses_fin, dist = [], [], []
+        obses_beg, obses_step, obses_fin, dist = [], [], [], []
 
         for i in idxes:
-            obs_1, _, _, _, _, ep_range = self._storage[i]
+            obs_1, _, _, obs_s, _, ep_range = self._storage[i]
 
             if ep_range <= i:
                 ep_range += self._maxsize
@@ -101,10 +101,15 @@ class ReplayBuffer(object):
             _, _, _, obs_2, _, _ = self._storage[(i+d) % self._maxsize]
 
             obses_beg.append(obs_1['observation'])
+            obses_step.append(obs_s['observation'])
             obses_fin.append(obs_2['observation'])
-            dist.append(d+1)
 
-        return np.array(obses_beg), np.array(obses_fin), np.array(dist)
+            # if np.array_equal(obs_1['observation'], obs_2['observation']):
+            #     dist.append(0.)
+            # else:
+            dist.append(d+1.)
+
+        return np.array(obses_beg), np.array(obses_step), np.array(obses_fin), np.array(dist)
 
     def sample(self, batch_size, **_kwargs):
         """

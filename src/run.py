@@ -177,19 +177,19 @@ def learn_Maze_MTR():
     model = MTR_model(env)
 
     try:
-        model = model.learn(total_timesteps=20000,
+        model = model.learn(total_timesteps=200000,
                             callback=callback,
                             )
     except KeyboardInterrupt:
         pass
 
     env._set_live_display(True)
-    evaluate(model, env)
+    evaluate(model, env, steps=100)
 
-    # while True:
-    #     l = [int(s) for s in input().split(' ')]
-    #     x = np.concatenate([env._get_discrete_obs(l[0:2]), env._get_discrete_obs(l[2:4])], axis=0)
-    #     print(model.mtr_predict(np.array([x])))
+    while True:
+        l = [int(s) for s in input().split(' ')]
+        x = np.concatenate([env._get_discrete_obs(l[0:2]), env._get_discrete_obs(l[2:4])], axis=0)
+        print(model.mtr_predict(np.array([x])))
 
 
 def main():

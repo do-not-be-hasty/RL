@@ -94,6 +94,7 @@ class DQN_MTR(OffPolicyRLModel):
         self.mtr_model = None
         self.mtr_train = None
         self.mtr_predict = None
+        self.mtr_weight = 0.9
 
         if _init_setup_model:
             self.setup_model()
@@ -147,15 +148,23 @@ class DQN_MTR(OffPolicyRLModel):
             self.model.compile(optimizer='adam',
                           loss='mean_squared_error')
 
-            def mtr_train(obses_beg, obses_fin, dist):
-                # print('beg', obses_beg, 'fin', obses_fin)
+            def mtr_train_naive(obses_beg, obses_step, obses_fin, dist):
                 data = np.concatenate([obses_beg, obses_fin], axis=1)
                 self.model.fit(x=data, y=dist, verbose=0)
+
+            def mtr_train_step(obses_beg, obses_step, obses_fin, dist):
+                data_step = np.concatenate([obses_step, obses_fin], axis=1)
+                pred = self.model.predict(data_step, verbose=0).flatten() + 1
+
+                data = np.concatenate([obses_beg, obses_fin], axis=1)
+                y = np.minimum(dist, pred*self.mtr_weight + dist*(1-self.mtr_weight))
+                # print(obses_beg[0], obses_step[0], obses_fin[0], dist[0], pred[0], y[0])
+                self.model.fit(x=data, y=y, verbose=0)
 
             def mtr_predict(data):
                 return self.model.predict(data, verbose=0)
 
-            self.mtr_train = mtr_train
+            self.mtr_train = mtr_train_step
             self.mtr_predict = mtr_predict
 
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="DQN"):
@@ -279,8 +288,8 @@ class DQN_MTR(OffPolicyRLModel):
                         self.replay_buffer.update_priorities(batch_idxes, new_priorities)
 
                     # Metric
-                    obses_beg, obses_fin, dist = self.replay_buffer.mtr_sample(self.batch_size)
-                    self.mtr_train(obses_beg, obses_fin, dist)
+                    obses_beg, obses_step, obses_fin, dist = self.replay_buffer.mtr_sample(self.batch_size)
+                    self.mtr_train(obses_beg, obses_step, obses_fin, dist)
 
 
                 if step > self.learning_starts and step % self.target_network_update_freq == 0:
