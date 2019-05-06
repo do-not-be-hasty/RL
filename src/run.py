@@ -26,10 +26,25 @@ from neptune_utils.neptune_utils import neptune_logger
 from neptune import ChannelType
 
 
+def ordering(preds, data_y):
+    res = 0.
+    cnt = 0.
+
+    for i in range(preds.shape[0]):
+        res += np.sum((preds < preds[i])*(data_y < data_y[i]) + (preds > preds[i])*(data_y > data_y[i]))
+        cnt += np.sum(data_y != data_y[i])
+
+    return res/cnt
+
+
 def callback(_locals, _globals):
-    if len(_locals['episode_rewards']) % 100 == 0:
+    if len(_locals['episode_rewards']) % 10 == 0:
         neptune_logger('success rate', np.mean(_locals['episode_success']))
         # neptune_logger('distance', np.mean(_locals['episode_finals']))
+        data_x, data_y = _locals['self'].env.get_dist_data()
+        neptune_logger('metric accuracy', _locals['self'].model.evaluate(data_x, data_y, verbose=0)[1])
+        preds = _locals['self'].model.predict(data_x).flatten()
+        neptune_logger('metric ordering', ordering(preds, data_y))
 
     return False
 
@@ -159,6 +174,9 @@ def learn_Maze_HER():
     env._set_live_display(True)
     evaluate(model, env)
 
+    # while True:
+    #     input()
+
 
 def learn_Maze_MTR():
     n = 10
@@ -173,6 +191,7 @@ def learn_Maze_MTR():
         seed=15,
         obs_type='discrete',
         reward_type='sparse',
+        resample_state=True,
         step_limit=100)
     model = MTR_model(env)
 
@@ -183,13 +202,16 @@ def learn_Maze_MTR():
     except KeyboardInterrupt:
         pass
 
-    env._set_live_display(True)
-    evaluate(model, env, steps=100)
+    data_x, data_y = env.get_dist_data()
+    print(model.model.evaluate(data_x, data_y))
 
-    while True:
-        l = [int(s) for s in input().split(' ')]
-        x = np.concatenate([env._get_discrete_obs(l[0:2]), env._get_discrete_obs(l[2:4])], axis=0)
-        print(model.mtr_predict(np.array([x])))
+    # env._set_live_display(True)
+    # evaluate(model, env, steps=1000)
+
+    # while True:
+    #     l = [int(s) for s in input().split(' ')]
+    #     x = np.concatenate([env._get_discrete_obs(l[0:2]), env._get_discrete_obs(l[2:4])], axis=0)
+    #     print(model.mtr_predict(np.array([x])))
 
 
 def main():

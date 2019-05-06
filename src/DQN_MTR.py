@@ -145,8 +145,10 @@ class DQN_MTR(OffPolicyRLModel):
                 tf.keras.layers.Dense(256, activation=tf.nn.relu),
                 tf.keras.layers.Dense(1, activation=tf.nn.relu)
             ])
+
             self.model.compile(optimizer='adam',
-                          loss='mean_squared_error')
+                          loss='mean_squared_error',
+                          metrics=['mean_absolute_error'])
 
             def mtr_train_naive(obses_beg, obses_step, obses_fin, dist):
                 data = np.concatenate([obses_beg, obses_fin], axis=1)
