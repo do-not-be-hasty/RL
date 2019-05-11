@@ -160,7 +160,7 @@ class DQN_HER(OffPolicyRLModel):
             episode_finals = [0] * 100
 
             full_obs = self.env.reset()
-            part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
+            part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
             reset = True
             self.episode_reward = np.zeros((1,))
@@ -193,7 +193,7 @@ class DQN_HER(OffPolicyRLModel):
                 episode_replays.append((full_obs, action, rew, new_obs, float(done)))
                 episode_trans.append((full_obs, action, rew, new_obs))
                 full_obs = new_obs
-                part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
+                part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
                 if writer is not None:
                     ep_rew = np.array([rew]).reshape((1, -1))
@@ -209,12 +209,12 @@ class DQN_HER(OffPolicyRLModel):
                         episode_success.append(0.)
                     episode_success = episode_success[1:]
 
-                    episode_finals.append(self.env._distance_to_goal())
-                    episode_finals = episode_finals[1:]
+                    # episode_finals.append(self.env._distance_to_goal())
+                    # episode_finals = episode_finals[1:]
 
                     if not isinstance(self.env, VecEnv):
                         full_obs = self.env.reset()
-                        part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']))
+                        part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
                     self.replay_buffer.add(episode_replays)
 

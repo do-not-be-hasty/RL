@@ -53,7 +53,7 @@ class ReplayBuffer(object):
             # print(obs_t, action, reward, obs_tp1, done, ep_range)
 
             def push_trans(goal, true_replay=False):
-                obses_t.append(np.array(np.concatenate([obs_t['observation'], goal]), copy=False))
+                obses_t.append(np.array(np.concatenate([obs_t['observation'], goal], axis=-1), copy=False))
                 actions.append(np.array(action, copy=False))
                 if np.array_equal(obs_tp1['achieved_goal'], goal):
                     rewards.append(0)
@@ -64,7 +64,7 @@ class ReplayBuffer(object):
                         dones.append(done)
                     else:
                         dones.append(0)
-                obses_tp1.append(np.array(np.concatenate([obs_tp1['observation'], goal]), copy=False))
+                obses_tp1.append(np.array(np.concatenate([obs_tp1['observation'], goal], axis=-1), copy=False))
 
                 # print(obses_t[-1], actions[-1], rewards[-1], obses_tp1[-1], dones[-1])
 
@@ -124,6 +124,10 @@ class ReplayBuffer(object):
             - done_mask: (numpy bool) done_mask[i] = 1 if executing act_batch[i] resulted in the end of an episode
                 and 0 otherwise.
         """
+        if len(self._storage) == 0:
+            print("Sampling from empty buffer")
+            return np.array([])
+
         idxes = [random.randint(0, len(self._storage) - 1) for _ in range(int(batch_size//(self._hindsight+1)))]
         return self._encode_sample(idxes, batch_size)
 

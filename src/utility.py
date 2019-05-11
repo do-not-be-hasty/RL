@@ -6,6 +6,7 @@ import gym
 import sys
 from gym.envs import register
 from gym_BitFlipper.envs import BitFlipperEnv
+import gym_sokoban
 
 
 def resources_dir():
@@ -56,5 +57,26 @@ def make_env_GoalMaze(**kwargs):
 
     env = gym.make(id)
     env.seed(0)
+
+    return env
+
+
+def make_env_Sokoban(**kwargs):
+    env = gym.make("Sokoban-v0")
+
+    return env
+
+
+def make_env_GoalSokoban(**kwargs):
+    id = ("GoalSokoban-" + str(kwargs) + "-v0").translate(str.maketrans('', '', " {}'<>()_"))
+    id = id.replace(',', '-')
+
+    try:
+        register(id=id, entry_point='gym_sokoban.envs:GoalSokobanEnv', kwargs=kwargs)
+        print("Registered environment with id = " + id)
+    except:
+        print("Environment with id = " + id + " already registered. Continuing with that environment.")
+
+    env = gym.make(id)
 
     return env

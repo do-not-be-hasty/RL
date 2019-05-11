@@ -7,7 +7,8 @@ import sys
 # from gym_maze.envs import MazeEnv
 from gym_maze import RandomMazeGenerator
 
-from utility import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze
+from utility import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze, make_env_Sokoban, \
+    make_env_GoalSokoban
 from stable_baselines.bench import Monitor
 
 from stable_baselines.common.policies import MlpPolicy as PPO2_Policy, FeedForwardPolicy
@@ -42,7 +43,7 @@ def callback(_locals, _globals):
         neptune_logger('success rate', np.mean(_locals['episode_success']))
         # neptune_logger('distance', np.mean(_locals['episode_finals']))
         data_x, data_y = _locals['self'].env.get_dist_data()
-        neptune_logger('metric accuracy', _locals['self'].model.evaluate(data_x, data_y, verbose=0)[1])
+        neptune_logger('metric error', _locals['self'].model.evaluate(data_x, data_y, verbose=0)[1])
         preds = _locals['self'].model.predict(data_x).flatten()
         neptune_logger('metric ordering', ordering(preds, data_y))
 
@@ -213,6 +214,53 @@ def learn_Maze_MTR():
     #     x = np.concatenate([env._get_discrete_obs(l[0:2]), env._get_discrete_obs(l[2:4])], axis=0)
     #     print(model.mtr_predict(np.array([x])))
 
+def learn_Sokoban_DQN():
+    print("Sokoban, DQN")
+
+    env = make_env_Sokoban()
+    model = DQN_model(env)
+
+    # print("Initial distance: {0}".format(env._distance_diameter()))
+
+    try:
+        model = model.learn(total_timesteps=2000000,
+                            # callback=callback,
+                            )
+    except KeyboardInterrupt:
+        pass
+
+    # env._set_live_display(True)
+    # evaluate(model, env)
+
+    # while True:
+    #     input()
+
+def learn_Sokoban_HER():
+    print("Sokoban, DQN+HER")
+
+    env = make_env_GoalSokoban(
+        dim_room=(8,8),
+        max_steps=100,
+        num_boxes=1,
+        max_distinct_rooms=np.inf,  # INFO: if finite, clone and restore do not reflect num_env_steps
+        mode='one_hot',
+        seed=None,
+        curriculum=300,  # depth of DFS in reverse_play
+        )
+    model = HER_model(env)
+
+    # print("Initial distance: {0}".format(env._distance_diameter()))
+
+    try:
+        model = model.learn(total_timesteps=2000000,
+                            # callback=callback,
+                            )
+    except KeyboardInterrupt:
+        pass
+
+    # env._set_live_display(True)
+    # evaluate(model, env)
+
 
 def main():
     ctx, exp_dir_path = get_configuration()
@@ -221,7 +269,10 @@ def main():
 
     # learn_BitFlipper_HER()
     # learn_Maze_HER()
-    learn_Maze_MTR()
+    # learn_Maze_MTR()
+    # learn_Sokoban_DQN()
+    learn_Sokoban_HER()
+
 
 if __name__ == '__main__':
     main()

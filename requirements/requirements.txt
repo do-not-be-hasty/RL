@@ -3,7 +3,7 @@ scipy==1.0.1
 
 
 scikit-learn==0.19.1
-tensorflow==1.10.1
+tensorflow==1.12.2
 tflearn==0.3.2
 keras==2.2.2
 h5py==2.7.1
@@ -12,6 +12,6 @@ h5py==2.7.1
 gym==0.10.9
 patchelf-wrapper==1.0.4
 pycolab==1.2
-stable_baselines==2.2.1
+stable_baselines==2.4.0
 
 neptune-cli==2.8.23
