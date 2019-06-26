@@ -159,6 +159,9 @@ class DQN_HER(OffPolicyRLModel):
             episode_success = [0] * 100
             episode_finals = [0] * 100
 
+            episode_places = []
+            episode_div = [0] * 100
+
             full_obs = self.env.reset()
             part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
@@ -188,6 +191,8 @@ class DQN_HER(OffPolicyRLModel):
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
+                # TODO zamienić na porównywanie obserwacji
+                episode_places.append(tuple(self.env.player_position))
                 # Store transition in the replay buffer.
                 # self.replay_buffer.add(part_obs, action, rew, np.concatenate((new_obs['observation'], new_obs['desired_goal'])), float(done))
                 episode_replays.append((full_obs, action, rew, new_obs, float(done)))
@@ -208,12 +213,15 @@ class DQN_HER(OffPolicyRLModel):
                     else:
                         episode_success.append(0.)
                     episode_success = episode_success[1:]
+                    episode_div.append(len(set(episode_places)))
+                    episode_div = episode_div[1:]
 
                     # episode_finals.append(self.env._distance_to_goal())
                     # episode_finals = episode_finals[1:]
 
                     if not isinstance(self.env, VecEnv):
                         full_obs = self.env.reset()
+                        # print(full_obs)
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
                     self.replay_buffer.add(episode_replays)
@@ -240,6 +248,7 @@ class DQN_HER(OffPolicyRLModel):
                     episode_rewards.append(0.0)
                     episode_trans = []
                     episode_replays = []
+                    episode_places = []
                     reset = True
 
                 if step > self.learning_starts and step % self.train_freq == 0:

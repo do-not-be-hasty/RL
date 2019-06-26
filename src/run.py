@@ -39,13 +39,19 @@ def ordering(preds, data_y):
 
 
 def callback(_locals, _globals):
-    if len(_locals['episode_rewards']) % 10 == 0:
+    if len(_locals['episode_rewards']) % 100 == 0:
         neptune_logger('success rate', np.mean(_locals['episode_success']))
+        neptune_logger('exploration', _locals['update_eps'])
+        ep_div = np.array(_locals['episode_div'])
+        ep_succ = np.array(_locals['episode_success'])
+        neptune_logger('success move diversity', np.sum(ep_div*ep_succ)/np.sum(ep_succ))
+        neptune_logger('failure move diversity', np.sum(ep_div*(1-ep_succ))/np.sum(1-ep_succ))
+        # neptune_logger('all move diversity', np.sum(ep_div))
         # neptune_logger('distance', np.mean(_locals['episode_finals']))
-        data_x, data_y = _locals['self'].env.get_dist_data()
-        neptune_logger('metric error', _locals['self'].model.evaluate(data_x, data_y, verbose=0)[1])
-        preds = _locals['self'].model.predict(data_x).flatten()
-        neptune_logger('metric ordering', ordering(preds, data_y))
+        # data_x, data_y = _locals['self'].env.get_dist_data()
+        # neptune_logger('metric error', _locals['self'].model.evaluate(data_x, data_y, verbose=0)[1])
+        # preds = _locals['self'].model.predict(data_x).flatten()
+        # neptune_logger('metric ordering', ordering(preds, data_y))
 
     return False
 
@@ -65,13 +71,13 @@ def DQN_model(env):
 
 def HER_model(env):
     return HER(
-        policy=partial(DQN_Policy, layers=[256]),
+        policy=partial(DQN_Policy, layers=[1024, 1024]),
         env=env,
-        hindsight=0.5,
+        hindsight=1,
         learning_rate=1e-4,
-        buffer_size=1000000,
-        exploration_fraction=0.05,
-        exploration_final_eps=0.0005,
+        buffer_size=2000000,
+        exploration_fraction=0.9,
+        exploration_final_eps=0.2,
         gamma=0.98,
         verbose=1,
     )
@@ -217,14 +223,21 @@ def learn_Maze_MTR():
 def learn_Sokoban_DQN():
     print("Sokoban, DQN")
 
-    env = make_env_Sokoban()
+    env = make_env_Sokoban(
+        dim_room=(8, 8),
+        max_steps=100,
+        num_boxes=2,
+        mode='one_hot',
+        seed=None,
+        curriculum=300,  # depth of DFS in reverse_play
+    )
     model = DQN_model(env)
 
     # print("Initial distance: {0}".format(env._distance_diameter()))
 
     try:
-        model = model.learn(total_timesteps=2000000,
-                            # callback=callback,
+        model = model.learn(total_timesteps=8000000,
+                            callback=callback,
                             )
     except KeyboardInterrupt:
         pass
@@ -241,8 +254,7 @@ def learn_Sokoban_HER():
     env = make_env_GoalSokoban(
         dim_room=(8,8),
         max_steps=100,
-        num_boxes=1,
-        max_distinct_rooms=np.inf,  # INFO: if finite, clone and restore do not reflect num_env_steps
+        num_boxes=2,
         mode='one_hot',
         seed=None,
         curriculum=300,  # depth of DFS in reverse_play
@@ -252,8 +264,8 @@ def learn_Sokoban_HER():
     # print("Initial distance: {0}".format(env._distance_diameter()))
 
     try:
-        model = model.learn(total_timesteps=2000000,
-                            # callback=callback,
+        model = model.learn(total_timesteps=8000000,
+                            callback=callback,
                             )
     except KeyboardInterrupt:
         pass
