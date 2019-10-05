@@ -1,12 +1,9 @@
 import os
 from pathlib import Path
 import datetime
+import numpy as np
 
-import gym
-import sys
-from gym.envs import register
-from gym_BitFlipper.envs import BitFlipperEnv
-import gym_sokoban
+from mrunner.helpers.client_helper import logger as neptune_logger
 
 
 def resources_dir():
@@ -19,73 +16,79 @@ def get_cur_time_str():
     return datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
 
 
-def make_env_BitFlipper(n=10, space_seed=0):
-    id = "BitFlipper"+str(n)+":"+str(space_seed)+"-v0"
-    try:
-        register(id=id,entry_point='gym_BitFlipper.envs:BitFlipperEnv',kwargs = {"space_seed":space_seed,"n":n})
-    except:
-        print("Environment with id = "+id+" already registered. Continuing with that environment.")
+def ordering(preds, data_y):
+    res = 0.
+    cnt = 0.
 
-    env=gym.make(id)
-    env.seed(0)
+    for i in range(preds.shape[0]):
+        res += np.sum((preds < preds[i])*(data_y < data_y[i]) + (preds > preds[i])*(data_y > data_y[i]))
+        cnt += np.sum(data_y != data_y[i])
 
-    return env
+    return res/cnt
 
 
-def make_env_GoalBitFlipper(n=10, space_seed=0):
-    id = "GoalBitFlipper" + str(n) + ":" + str(space_seed) + "-v0"
-    try:
-        register(id=id, entry_point='gym_BitFlipper.envs:GoalBitFlipperEnv', kwargs={"space_seed": space_seed, "n": n})
-    except:
-        print("Environment with id = " + id + " already registered. Continuing with that environment.")
+def clear_eval(model, env, neval=100):
 
-    env = gym.make(id)
-    env.seed(0)
+    def single_eval():
+        obs = env.reset()
+        while True:
+            action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
+            obs, rewards, dones, info = env.step(action)
 
-    return env
+            if rewards >= 0:
+                return 1
 
+            if dones:
+                return 0
 
-def make_env_GoalMaze(**kwargs):
-    id = ("GoalMaze-" + str(kwargs) + "-v0").translate(str.maketrans('',''," {}'<>()_"))
-    id = id.replace(',', '-')
-
-    try:
-        register(id=id, entry_point='gym_maze.envs:GoalMazeEnv', kwargs=kwargs)
-        print("Registered environment with id = " + id)
-    except:
-        print("Environment with id = " + id + " already registered. Continuing with that environment.")
-
-    env = gym.make(id)
-    env.seed(0)
-
-    return env
+    vals = [single_eval() for i in range(neval)]
+    return np.mean(vals)
 
 
-def make_env_Sokoban(**kwargs):
-    id = ("Sokoban-" + str(kwargs) + "-v0").translate(str.maketrans('', '', " {}'<>()_"))
-    id = id.replace(',', '-')
+def callback(_locals, _globals):
+    if len(_locals['episode_rewards']) % 100 == 0:
+        neptune_logger('success rate', np.mean(_locals['episode_success']))
+        neptune_logger('no exploration success rate', clear_eval(_locals['self'], _locals['self'].env))
+        neptune_logger('exploration', _locals['update_eps'])
+        ep_div = np.array(_locals['episode_div'])
+        ep_succ = np.array(_locals['episode_success'])
+        neptune_logger('success move diversity', np.sum(ep_div*ep_succ)/np.sum(ep_succ))
+        neptune_logger('failure move diversity', np.sum(ep_div*(1-ep_succ))/np.sum(1-ep_succ))
 
-    try:
-        register(id=id, entry_point='gym_sokoban.envs:SokobanEnv', kwargs=kwargs)
-        print("Registered environment with id = " + id)
-    except:
-        print("Environment with id = " + id + " already registered. Continuing with that environment.")
+        # neptune_logger('all move diversity', np.sum(ep_div))
+        # neptune_logger('distance', np.mean(_locals['episode_finals']))
+        # data_x, data_y = _locals['self'].env.get_dist_data()
+        # neptune_logger('metric error', _locals['self'].model.evaluate(data_x, data_y, verbose=0)[1])
+        # preds = _locals['self'].model.predict(data_x).flatten()
+        # neptune_logger('metric ordering', ordering(preds, data_y))
 
-    env = gym.make(id)
-
-    return env
+    return False
 
 
-def make_env_GoalSokoban(**kwargs):
-    id = ("GoalSokoban-" + str(kwargs) + "-v0").translate(str.maketrans('', '', " {}'<>()_"))
-    id = id.replace(',', '-')
+def evaluate(model, env, steps=1000, verbose=True):
+    print('--- Evaluation\n')
 
-    try:
-        register(id=id, entry_point='gym_sokoban.envs:GoalSokobanEnv', kwargs=kwargs)
-        print("Registered environment with id = " + id)
-    except:
-        print("Environment with id = " + id + " already registered. Continuing with that environment.")
+    obs = env.reset()
+    if verbose:
+        print(obs)
+    succ = 0
+    n_ep = 0
 
-    env = gym.make(id)
+    for i in range(steps):
+        action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal'])))
+        # action, _states = model.predict(obs)
+        obs, rewards, dones, info = env.step(action)
+        if verbose:
+            env.render()
 
-    return env
+        if rewards >= 0:
+            succ += 1
+
+        if dones:
+            n_ep += 1
+            obs = env.reset()
+            if verbose:
+                # env.print_rewards_info()
+                print()
+
+    print('Success rate: ', succ / n_ep)

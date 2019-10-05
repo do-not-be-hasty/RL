@@ -1,7 +1,6 @@
 import random
 
 import numpy as np
-import sys
 
 from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
 

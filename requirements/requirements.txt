@@ -3,7 +3,7 @@ scipy==1.0.1
 
 
 scikit-learn==0.19.1
-tensorflow==1.12.2
+tensorflow-gpu==1.10.0
 tflearn==0.3.2
 keras==2.2.2
 h5py==2.7.1
@@ -14,4 +14,9 @@ patchelf-wrapper==1.0.4
 pycolab==1.2
 stable_baselines==2.4.0
 
-neptune-cli==2.8.23
+neptune-client
+git+https://github.com/deepsense-ai/mrunner.git@new_neptune
+munch
+psutil
+cloudpickle
+gin-config

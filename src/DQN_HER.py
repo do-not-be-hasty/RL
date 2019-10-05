@@ -164,6 +164,7 @@ class DQN_HER(OffPolicyRLModel):
 
             full_obs = self.env.reset()
             part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
+            begin_obs = [full_obs] * 100
 
             reset = True
             self.episode_reward = np.zeros((1,))
@@ -191,8 +192,7 @@ class DQN_HER(OffPolicyRLModel):
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
-                # TODO zamienić na porównywanie obserwacji
-                episode_places.append(tuple(self.env.player_position))
+                episode_places.append(tuple(self.env.room_state.flatten()))
                 # Store transition in the replay buffer.
                 # self.replay_buffer.add(part_obs, action, rew, np.concatenate((new_obs['observation'], new_obs['desired_goal'])), float(done))
                 episode_replays.append((full_obs, action, rew, new_obs, float(done)))
@@ -225,6 +225,8 @@ class DQN_HER(OffPolicyRLModel):
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
                     self.replay_buffer.add(episode_replays)
+                    begin_obs.append(full_obs)
+                    begin_obs = begin_obs[1:]
 
                     # # Hindsight experience
                     # for i in range(4):
