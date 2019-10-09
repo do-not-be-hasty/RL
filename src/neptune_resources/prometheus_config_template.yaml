@@ -10,7 +10,7 @@
      partition: plgrid-gpu
      requirements_file: neptune_resources/requirements_remote.txt
      time: 3000
-     cpu: 2
+     cpu: 1
      gpu: 1
      mem: 50G
      slurm_url: <username>@pro.cyfronet.pl
@@ -25,7 +25,7 @@
      partition: plgrid-gpu
      requirements_file: neptune_resources/requirements_remote.txt
      time: 3000
-     cpu: 2
+     cpu: 1
      gpu: 1
      mem: 50G
      slurm_url: <username>@eagle.man.poznan.pl
@@ -43,7 +43,7 @@
      ntasks: 2
      requirements_file: neptune_resources/requirements_remote.txt
      time: 3000
-     cpu: 2
+     cpu: 1
      gpu: 1
      mem: 50G
      slurm_url: <username>@pro.cyfronet.pl

@@ -3,8 +3,7 @@ from gym_maze import RandomMazeGenerator
 from environment_builders import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze, make_env_Sokoban, \
     make_env_GoalSokoban
 from utility import callback, evaluate
-from models import HER_model, MTR_model, DQN_model
-
+from models import HER_model, MTR_model, DQN_model, HER_model_conv
 
 
 def learn_BitFlipper_HER():
@@ -15,7 +14,7 @@ def learn_BitFlipper_HER():
     model = HER_model(env)
 
     try:
-        model = model.learn(total_timesteps=10000*16*n)
+        model.learn(total_timesteps=10000*16*n)
     except KeyboardInterrupt:
         pass
 
@@ -41,9 +40,9 @@ def learn_Maze_HER():
     print("Initial distance: {0}".format(env._distance_diameter()))
 
     try:
-        model = model.learn(total_timesteps=2000000,
-                            callback=callback,
-                            )
+        model.learn(total_timesteps=2000000,
+                    callback=callback,
+                    )
     except KeyboardInterrupt:
         pass
 
@@ -78,14 +77,6 @@ def learn_Maze_MTR():
     data_x, data_y = env.get_dist_data()
     print(model.model.evaluate(data_x, data_y))
 
-    # env._set_live_display(True)
-    # evaluate(model, env, steps=1000)
-
-    # while True:
-    #     l = [int(s) for s in input().split(' ')]
-    #     x = np.concatenate([env._get_discrete_obs(l[0:2]), env._get_discrete_obs(l[2:4])], axis=0)
-    #     print(model.mtr_predict(np.array([x])))
-
 def learn_Sokoban_DQN():
     print("Sokoban, DQN")
 
@@ -99,20 +90,12 @@ def learn_Sokoban_DQN():
     )
     model = DQN_model(env)
 
-    # print("Initial distance: {0}".format(env._distance_diameter()))
-
     try:
-        model = model.learn(total_timesteps=8000000,
-                            callback=callback,
-                            )
+        model.learn(total_timesteps=8000000,
+                    callback=callback,
+                    )
     except KeyboardInterrupt:
         pass
-
-    # env._set_live_display(True)
-    # evaluate(model, env)
-
-    # while True:
-    #     input()
 
 def learn_Sokoban_HER():
     print("Sokoban, DQN+HER")
@@ -125,16 +108,12 @@ def learn_Sokoban_HER():
         seed=None,
         curriculum=300,  # depth of DFS in reverse_play
         )
-    model = HER_model(env)
-
-    # print("Initial distance: {0}".format(env._distance_diameter()))
+    # model = HER_model(env)
+    model = HER_model_conv(env)
 
     try:
-        model = model.learn(total_timesteps=8000000,
-                            callback=callback,
-                            )
+        model.learn(total_timesteps=8000000,
+                    callback=callback,
+                    )
     except KeyboardInterrupt:
         pass
-
-    # env._set_live_display(True)
-    # evaluate(model, env)

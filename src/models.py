@@ -4,8 +4,16 @@ from stable_baselines.common.policies import MlpPolicy as PPO2_Policy
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import PPO2, DQN
 from stable_baselines.deepq import MlpPolicy as DQN_Policy
+from stable_baselines.deepq.policies import FeedForwardPolicy
+
 from DQN_HER import DQN_HER as HER
 from DQN_metric import DQN_MTR as MTR
+import networks
+
+
+class ConvnetPolicy(FeedForwardPolicy):
+    def __init__(self, *args, **kwargs):
+        super(ConvnetPolicy, self).__init__(*args, **kwargs, feature_extraction="convnet_mnist")
 
 
 def DQN_model(env):
@@ -37,7 +45,7 @@ def HER_model(env):
 
 def HER_model_conv(env):
     return HER(
-        policy="convnet_mnist",
+        policy=ConvnetPolicy,
         env=env,
         hindsight=1,
         learning_rate=1e-4,
