@@ -1,7 +1,7 @@
 from gym_maze import RandomMazeGenerator
 
 from environment_builders import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze, make_env_Sokoban, \
-    make_env_GoalSokoban
+    make_env_GoalSokoban, make_env_Rubik
 from utility import callback, evaluate
 from models import HER_model, MTR_model, DQN_model, HER_model_conv
 
@@ -108,12 +108,46 @@ def learn_Sokoban_HER():
         seed=None,
         curriculum=300,  # depth of DFS in reverse_play
         )
-    # model = HER_model(env)
+    model = HER_model(env)
+
+    try:
+        model.learn(total_timesteps=8000000,
+                    callback=callback,
+                    )
+    except KeyboardInterrupt:
+        pass
+
+def learn_Sokoban_HER_conv():
+    print("Sokoban, DQN+HER, CNN")
+
+    env = make_env_GoalSokoban(
+        dim_room=(8,8),
+        max_steps=100,
+        num_boxes=2,
+        mode='one_hot',
+        seed=None,
+        curriculum=300,  # depth of DFS in reverse_play
+        )
     model = HER_model_conv(env)
 
     try:
         model.learn(total_timesteps=8000000,
                     callback=callback,
+                    )
+    except KeyboardInterrupt:
+        pass
+
+def learn_Rubik_DQN():
+    print("Rubik, DQN")
+
+    env = make_env_Rubik(
+        step_limit=200,
+    )
+    model = DQN_model(env)
+
+    try:
+        model.learn(total_timesteps=8000000,
+                    # callback=callback,
                     )
     except KeyboardInterrupt:
         pass

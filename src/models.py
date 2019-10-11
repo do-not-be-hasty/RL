@@ -1,3 +1,4 @@
+import sys
 from functools import partial
 
 from stable_baselines.common.policies import MlpPolicy as PPO2_Policy
@@ -13,7 +14,9 @@ import networks
 
 class ConvnetPolicy(FeedForwardPolicy):
     def __init__(self, *args, **kwargs):
-        super(ConvnetPolicy, self).__init__(*args, **kwargs, feature_extraction="convnet_mnist")
+        feature_extraction = "convnet_mnist"
+        print("feature extraction:", feature_extraction, file=sys.stderr)
+        super(ConvnetPolicy, self).__init__(*args, **kwargs, feature_extraction=feature_extraction)
 
 
 def DQN_model(env):

@@ -1,6 +1,6 @@
 # polo_plus.lukasz_mcts.models
 # This file is imported to the project from external source
-
+import sys
 
 import tensorflow as tf
 from baselines.common.models import register, mlp
@@ -11,6 +11,19 @@ from keras.layers import Dropout, BatchNormalization
 
 slim = tf.contrib.slim
 
+
+@register("ff_network")
+def convnet(output=1):
+    def network_fn(state):
+        net = tf.cast(state, tf.float32)
+
+        net = slim.fully_connected(net, 1000, activation_fn=tf.nn.relu)
+        net = slim.fully_connected(net, 1000, activation_fn=tf.nn.relu)
+
+        value = slim.fully_connected(net, output, activation_fn=None)
+
+        return value
+    return network_fn
 
 @register("convnet")
 def convnet(output=1):
@@ -40,7 +53,7 @@ def convnet_mnist(output=1):
         net = tf.cast(state, tf.float32)
 
         for _ in range(5):
-            net = slim.conv2d(net, 128, [3, 3], stride=1, padding='SAME')
+            net = slim.conv2d(net, 256, [3, 3], stride=1, padding='SAME', activation_fn=tf.nn.relu, use_bias=True)
 
         # net = slim.max_pool2d(net, [2, 2], scope='pool2')
         # net = slim.conv2d(net, 64, [3, 3], stride=1, padding='SAME')
@@ -48,8 +61,7 @@ def convnet_mnist(output=1):
 
         net = slim.flatten(net)
 
-        net = slim.fully_connected(net, 256, activation_fn=tf.nn.relu)
-        net = slim.fully_connected(net, 256, activation_fn=tf.nn.relu)
+        net = slim.fully_connected(net, 1000, activation_fn=tf.nn.relu, use_bias=True)
 
         value = slim.fully_connected(net, output, activation_fn=None)
 

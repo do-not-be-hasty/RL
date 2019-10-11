@@ -12,7 +12,7 @@
      time: 3000
      cpu: 1
      gpu: 1
-     mem: 50G
+     mem: 25G
      slurm_url: <username>@pro.cyfronet.pl
      storage_dir: /net/archive/groups/plggluna/<username>
      venv: /net/people/<username>/RL/py35
@@ -27,7 +27,7 @@
      time: 3000
      cpu: 1
      gpu: 1
-     mem: 50G
+     mem: 25G
      slurm_url: <username>@eagle.man.poznan.pl
      storage_dir: /home/plgrid/<username>
      venv: /net/people/<username>/RL/py35
@@ -45,7 +45,7 @@
      time: 3000
      cpu: 1
      gpu: 1
-     mem: 50G
+     mem: 25G
      slurm_url: <username>@pro.cyfronet.pl
      storage_dir: /net/archive/groups/plggluna/<username>
      venv: /net/people/<username>/RL/py35
