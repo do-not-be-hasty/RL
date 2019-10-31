@@ -87,3 +87,18 @@ def make_env_Rubik(**kwargs):
     env = gym.make(id)
 
     return env
+
+
+def make_env_GoalRubik(**kwargs):
+    id = ("Rubik-" + str(kwargs) + "-v0").translate(str.maketrans('', '', " {}'<>()_"))
+    id = id.replace(',', '-')
+
+    try:
+        register(id=id, entry_point='gym_rubik.envs:GoalRubikEnv', kwargs=kwargs)
+        print("Registered environment with id = " + id)
+    except:
+        print("Environment with id = " + id + " already registered. Continuing with that environment.")
+
+    env = gym.make(id)
+
+    return env

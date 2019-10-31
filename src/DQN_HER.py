@@ -46,7 +46,8 @@ class DQN_HER(OffPolicyRLModel):
     :param _init_setup_model: (bool) Whether or not to build the network at the creation of the instance
     """
 
-    def __init__(self, policy, env, hindsight=4, gamma=0.99, learning_rate=5e-4, buffer_size=50000, exploration_fraction=0.1,
+    def __init__(self, policy, env, hindsight=4, gamma=0.99, learning_rate=5e-4, buffer_size=50000,
+                 exploration_fraction=0.1,
                  exploration_final_eps=0.02, train_freq=1, batch_size=32, checkpoint_freq=10000, checkpoint_path=None,
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
@@ -54,8 +55,9 @@ class DQN_HER(OffPolicyRLModel):
                  _init_setup_model=True):
 
         # TODO: replay_buffer refactoring
-        super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
-                                  requires_vec_env=False)
+        super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
+                                      policy_base=DQNPolicy,
+                                      requires_vec_env=False)
 
         self.checkpoint_path = checkpoint_path
         self.param_noise = param_noise
@@ -156,15 +158,15 @@ class DQN_HER(OffPolicyRLModel):
             episode_rewards = [0.0]
             episode_trans = []
             episode_replays = []
-            episode_success = [0] * 100
-            episode_finals = [0] * 100
+            episode_success = [0] * log_interval
+            episode_finals = [0] * log_interval
 
             episode_places = []
-            episode_div = [0] * 100
+            episode_div = [0] * log_interval
 
             full_obs = self.env.reset()
             part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
-            begin_obs = [full_obs] * 100
+            begin_obs = [full_obs] * log_interval
 
             reset = True
             self.episode_reward = np.zeros((1,))
@@ -192,7 +194,14 @@ class DQN_HER(OffPolicyRLModel):
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
-                episode_places.append(tuple(self.env.room_state.flatten()))
+
+                try:
+                    episode_places.append(tuple(self.env.room_state.flatten()))
+                except AttributeError:
+                    episode_places.append(tuple(new_obs['observation'].flatten()))
+                    # TODO implement clean handling of diversity
+                    pass
+
                 # Store transition in the replay buffer.
                 # self.replay_buffer.add(part_obs, action, rew, np.concatenate((new_obs['observation'], new_obs['desired_goal'])), float(done))
                 episode_replays.append((full_obs, action, rew, new_obs, float(done)))
@@ -288,17 +297,17 @@ class DQN_HER(OffPolicyRLModel):
                     # Update target network periodically.
                     self.update_target(sess=self.sess)
 
-                if len(episode_rewards[-101:-1]) == 0:
+                if len(episode_rewards[-(log_interval + 1):-1]) == 0:
                     mean_100ep_reward = -np.inf
                 else:
-                    mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1)
+                    mean_100ep_reward = round(float(np.mean(episode_rewards[-(log_interval + 1):-1])), 1)
 
                 num_episodes = len(episode_rewards)
                 if self.verbose >= 1 and done and log_interval is not None and len(episode_rewards) % log_interval == 0:
                     logger.record_tabular("steps", step)
                     logger.record_tabular("episodes", num_episodes)
-                    logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
-                    logger.record_tabular("100 episode success", np.mean(episode_success))
+                    logger.record_tabular("mean {0} episode reward".format(log_interval), mean_100ep_reward)
+                    logger.record_tabular("{0} episode success".format(log_interval), np.mean(episode_success))
                     logger.record_tabular("% time spent exploring", int(100 * self.exploration.value(step)))
                     logger.dump_tabular()
 

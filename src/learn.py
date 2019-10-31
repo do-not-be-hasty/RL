@@ -1,7 +1,7 @@
 from gym_maze import RandomMazeGenerator
 
 from environment_builders import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze, make_env_Sokoban, \
-    make_env_GoalSokoban, make_env_Rubik
+    make_env_GoalSokoban, make_env_Rubik, make_env_GoalRubik
 from utility import callback, evaluate
 from models import HER_model, MTR_model, DQN_model, HER_model_conv
 
@@ -14,7 +14,7 @@ def learn_BitFlipper_HER():
     model = HER_model(env)
 
     try:
-        model.learn(total_timesteps=10000*16*n)
+        model.learn(total_timesteps=10000 * 16 * n)
     except KeyboardInterrupt:
         pass
 
@@ -77,6 +77,7 @@ def learn_Maze_MTR():
     data_x, data_y = env.get_dist_data()
     print(model.model.evaluate(data_x, data_y))
 
+
 def learn_Sokoban_DQN():
     print("Sokoban, DQN")
 
@@ -97,37 +98,40 @@ def learn_Sokoban_DQN():
     except KeyboardInterrupt:
         pass
 
+
 def learn_Sokoban_HER():
     print("Sokoban, DQN+HER")
 
     env = make_env_GoalSokoban(
-        dim_room=(8,8),
+        dim_room=(8, 8),
         max_steps=100,
         num_boxes=2,
         mode='one_hot',
         seed=None,
         curriculum=300,  # depth of DFS in reverse_play
-        )
+    )
     model = HER_model(env)
 
     try:
         model.learn(total_timesteps=8000000,
                     callback=callback,
+                    log_interval=10,
                     )
     except KeyboardInterrupt:
         pass
+
 
 def learn_Sokoban_HER_conv():
     print("Sokoban, DQN+HER, CNN")
 
     env = make_env_GoalSokoban(
-        dim_room=(8,8),
+        dim_room=(8, 8),
         max_steps=100,
         num_boxes=2,
         mode='one_hot',
         seed=None,
         curriculum=300,  # depth of DFS in reverse_play
-        )
+    )
     model = HER_model_conv(env)
 
     try:
@@ -137,17 +141,37 @@ def learn_Sokoban_HER_conv():
     except KeyboardInterrupt:
         pass
 
+
 def learn_Rubik_DQN():
     print("Rubik, DQN")
 
     env = make_env_Rubik(
-        step_limit=200,
+        step_limit=100,
+        shuffles=5,
     )
     model = DQN_model(env)
 
     try:
         model.learn(total_timesteps=8000000,
                     # callback=callback,
+                    )
+    except KeyboardInterrupt:
+        pass
+
+
+def learn_Rubik_HER():
+    print("Rubik, DQN+HER")
+
+    env = make_env_GoalRubik(
+        step_limit=100,
+        shuffles=100,
+    )
+    model = HER_model(env)
+
+    try:
+        model.learn(total_timesteps=120000000,
+                    callback=callback,
+                    log_interval=200,
                     )
     except KeyboardInterrupt:
         pass

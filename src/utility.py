@@ -1,7 +1,11 @@
+import copy
 import os
 from pathlib import Path
 import datetime
+
 import numpy as np
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
 
 from mrunner.helpers.client_helper import logger as neptune_logger
 
@@ -21,14 +25,13 @@ def ordering(preds, data_y):
     cnt = 0.
 
     for i in range(preds.shape[0]):
-        res += np.sum((preds < preds[i])*(data_y < data_y[i]) + (preds > preds[i])*(data_y > data_y[i]))
+        res += np.sum((preds < preds[i]) * (data_y < data_y[i]) + (preds > preds[i]) * (data_y > data_y[i]))
         cnt += np.sum(data_y != data_y[i])
 
-    return res/cnt
+    return res / cnt
 
 
 def clear_eval(model, env, neval=100):
-
     def single_eval():
         obs = env.reset()
         while True:
@@ -45,22 +48,30 @@ def clear_eval(model, env, neval=100):
     return np.mean(vals)
 
 
+def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10):
+    for shuffle in shuffles_list:
+        env.scrambleSize = shuffle
+        neptune_logger('shuffles {0} success rate'.format(shuffle),
+                       clear_eval(model, env, neval))
+
+
 def callback(_locals, _globals):
-    if len(_locals['episode_rewards']) % 100 == 0:
+    interval = 100 if _locals['log_interval'] is None else _locals['log_interval']
+
+    if len(_locals['episode_rewards']) % interval == 0:
         neptune_logger('success rate', np.mean(_locals['episode_success']))
-        neptune_logger('no exploration success rate', clear_eval(_locals['self'], _locals['self'].env))
+        neptune_logger('no exploration success rate',
+                       clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=25))
         neptune_logger('exploration', _locals['update_eps'])
         ep_div = np.array(_locals['episode_div'])
         ep_succ = np.array(_locals['episode_success'])
-        neptune_logger('success move diversity', np.sum(ep_div*ep_succ)/np.sum(ep_succ))
-        neptune_logger('failure move diversity', np.sum(ep_div*(1-ep_succ))/np.sum(1-ep_succ))
+        neptune_logger('success move diversity',
+                       np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
+        neptune_logger('failure move diversity',
+                       np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
 
-        # neptune_logger('all move diversity', np.sum(ep_div))
-        # neptune_logger('distance', np.mean(_locals['episode_finals']))
-        # data_x, data_y = _locals['self'].env.get_dist_data()
-        # neptune_logger('metric error', _locals['self'].model.evaluate(data_x, data_y, verbose=0)[1])
-        # preds = _locals['self'].model.predict(data_x).flatten()
-        # neptune_logger('metric ordering', ordering(preds, data_y))
+        log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'],
+                                  copy.deepcopy(_locals['self'].env))
 
     return False
 
@@ -92,3 +103,8 @@ def evaluate(model, env, steps=1000, verbose=True):
                 print()
 
     print('Success rate: ', succ / n_ep)
+
+
+def model_summary():
+    model_vars = tf.trainable_variables()
+    slim.model_analyzer.analyze_vars(model_vars, print_info=True)
