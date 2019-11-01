@@ -13,6 +13,7 @@ from stable_baselines.deepq.policies import FeedForwardPolicy, DQNPolicy
 from DQN_HER import DQN_HER as HER
 from DQN_metric import DQN_MTR as MTR
 import networks
+from networks import CustomPolicy
 
 
 def DQN_model(env):
@@ -31,12 +32,13 @@ def DQN_model(env):
 def HER_model(env):
     return HER(
         policy=partial(DQN_Policy, layers=[1024, 1024]),
+        # policy=partial(CustomPolicy, arch_fun=networks.arch_simpleFf),
         env=env,
         hindsight=2,
         learning_rate=1e-4,
         buffer_size=2000000,
         exploration_fraction=0.01,
-        exploration_final_eps=0.2,
+        exploration_final_eps=0.1,
         gamma=0.98,
         verbose=1,
     )

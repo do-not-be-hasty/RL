@@ -41,14 +41,14 @@ class ReplayBuffer(object):
                 self._storage[self._next_idx] = data
             self._next_idx = (self._next_idx + 1) % self._maxsize
 
-    def _encode_sample(self, idxes, batch_size):
+    def _encode_sample(self, idxes, has_replaced_goal, batch_size):
         obses_t, actions, rewards, obses_tp1, dones = [], [], [], [], []
-        rep = np.random.multinomial(batch_size-len(idxes), np.ones(len(idxes))/len(idxes))
 
         for it in range(len(idxes)):
             i = idxes[it]
             data = self._storage[i]
             obs_t, action, reward, obs_tp1, done, ep_range = data
+            replace_goal = has_replaced_goal[it]
             # print(obs_t, action, reward, obs_tp1, done, ep_range)
 
             def push_trans(goal, true_replay=False):
@@ -67,23 +67,19 @@ class ReplayBuffer(object):
 
                 # print(obses_t[-1], actions[-1], rewards[-1], obses_tp1[-1], dones[-1])
 
-            push_trans(obs_t['desired_goal'], true_replay=True)
-
-            if rep[it] == 0:
+            if not replace_goal:
+                push_trans(obs_t['desired_goal'], true_replay=True)
                 continue
 
             if ep_range <= i:
                 ep_range += self._maxsize
 
-            offsets = np.random.choice(ep_range - i, rep[it])
+            # NOTE trying to take control over hindsight curriculum, plug here
+            offset = np.random.randint(0, ep_range - i)
 
-            for j in offsets:
-                _, _, _, new_obs, _, _ = self._storage[(i+j) % self._maxsize]
-                add_goal = new_obs['achieved_goal']
-                push_trans(add_goal)
-
-            # if done == 1:
-            #     sys.exit(0)
+            _, _, _, new_obs, _, _ = self._storage[(i+offset) % self._maxsize]
+            add_goal = new_obs['achieved_goal']
+            push_trans(add_goal)
 
         return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
 
@@ -127,8 +123,12 @@ class ReplayBuffer(object):
             print("Sampling from empty buffer")
             return np.array([])
 
-        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(int(batch_size//(self._hindsight+1)))]
-        return self._encode_sample(idxes, batch_size)
+        num_real_goals = int(batch_size//(self._hindsight+1))
+        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        has_replaced_goal = [False] * num_real_goals + [True] * (batch_size - num_real_goals)
+        np.random.shuffle(has_replaced_goal)
+
+        return self._encode_sample(idxes, has_replaced_goal, batch_size)
 
     def mtr_sample(self, batch_size, **_kwargs):
         """
