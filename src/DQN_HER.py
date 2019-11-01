@@ -160,8 +160,9 @@ class DQN_HER(OffPolicyRLModel):
             episode_replays = []
             episode_success = [0] * log_interval
             episode_finals = [0] * log_interval
+            is_in_loop = False
 
-            episode_places = []
+            episode_places = set()
             episode_div = [0] * log_interval
 
             full_obs = self.env.reset()
@@ -190,17 +191,22 @@ class DQN_HER(OffPolicyRLModel):
                     kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                     kwargs['update_param_noise_scale'] = True
                 with self.sess.as_default():
+                    if is_in_loop:
+                        update_eps = (update_eps+1.)/2.
                     action = self.act(np.array(part_obs)[None], update_eps=update_eps, **kwargs)[0]
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
 
+                current_place = None
+                is_in_loop = False
                 try:
-                    episode_places.append(tuple(self.env.room_state.flatten()))
+                    current_place = tuple(self.env.room_state.flatten())
                 except AttributeError:
-                    episode_places.append(tuple(new_obs['observation'].flatten()))
-                    # TODO implement clean handling of diversity
-                    pass
+                    current_place = tuple(new_obs['observation'].flatten())
+                if current_place in episode_places:
+                    is_in_loop = True
+                episode_places.add(current_place)
 
                 # Store transition in the replay buffer.
                 # self.replay_buffer.add(part_obs, action, rew, np.concatenate((new_obs['observation'], new_obs['desired_goal'])), float(done))
@@ -222,7 +228,7 @@ class DQN_HER(OffPolicyRLModel):
                     else:
                         episode_success.append(0.)
                     episode_success = episode_success[1:]
-                    episode_div.append(len(set(episode_places)))
+                    episode_div.append(len(episode_places))
                     episode_div = episode_div[1:]
 
                     # episode_finals.append(self.env._distance_to_goal())
@@ -259,8 +265,9 @@ class DQN_HER(OffPolicyRLModel):
                     episode_rewards.append(0.0)
                     episode_trans = []
                     episode_replays = []
-                    episode_places = []
+                    episode_places = set()
                     reset = True
+                    is_in_loop = False
 
                 if step > self.learning_starts and step % self.train_freq == 0:
                     # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
