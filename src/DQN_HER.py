@@ -175,6 +175,7 @@ class DQN_HER(OffPolicyRLModel):
             for step in range(total_timesteps):
                 # curriculum
                 # self.env.scrambleSize = 1 + step // 500000
+                # self.env.step_limit = min((self.env.scrambleSize + 2) * 2, 100)
 
                 # Take action and update exploration to the newest value
                 kwargs = {}
