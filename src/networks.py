@@ -45,12 +45,6 @@ class CustomPolicy(DQNPolicy):
 
 def arch_simpleFf(processed_obs, act_fun, n_actions, dueling):
     with tf.variable_scope("action_value"):
-
-        # for _ in range(5):
-        #     extracted_features = tf.layers.conv2d(self.processed_obs, filters=64, kernel_size=(3, 3),
-        #                                           strides=(1, 1), padding="same")
-        #     extracted_features = tf.nn.relu(extracted_features)
-
         extracted_features = tf.layers.flatten(processed_obs)
         action_out = extracted_features
 
@@ -68,6 +62,78 @@ def arch_simpleFf(processed_obs, act_fun, n_actions, dueling):
             state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
             state_out = act_fun(state_out)
             state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = act_fun(state_out)
+
+            state_score = tf_layers.fully_connected(state_out, num_outputs=1, activation_fn=None)
+
+        action_scores_mean = tf.reduce_mean(action_scores, axis=1)
+        action_scores_centered = action_scores - tf.expand_dims(action_scores_mean, axis=1)
+        q_out = state_score + action_scores_centered
+    else:
+        q_out = action_scores
+
+    return q_out
+
+
+def arch_batchnorm(processed_obs, act_fun, n_actions, dueling):
+    with tf.variable_scope("action_value"):
+        extracted_features = tf.layers.flatten(processed_obs)
+        action_out = extracted_features
+
+        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
+        action_out = act_fun(action_out)
+        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
+        action_out = act_fun(action_out)
+
+        action_scores = tf_layers.fully_connected(action_out, num_outputs=n_actions, activation_fn=None)
+
+    if dueling:
+        with tf.variable_scope("state_value"):
+            state_out = extracted_features
+
+            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
+            state_out = act_fun(state_out)
+            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
+            state_out = act_fun(state_out)
+
+            state_score = tf_layers.fully_connected(state_out, num_outputs=1, activation_fn=None)
+
+        action_scores_mean = tf.reduce_mean(action_scores, axis=1)
+        action_scores_centered = action_scores - tf.expand_dims(action_scores_mean, axis=1)
+        q_out = state_score + action_scores_centered
+    else:
+        q_out = action_scores
+
+    return q_out
+
+
+def arch_dropout(processed_obs, act_fun, n_actions, dueling):
+    with tf.variable_scope("action_value"):
+        extracted_features = tf.layers.flatten(processed_obs)
+        action_out = extracted_features
+
+        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.dropout(action_out, keep_prob=0.8)
+        action_out = act_fun(action_out)
+        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.dropout(action_out, keep_prob=0.8)
+        action_out = act_fun(action_out)
+
+        action_scores = tf_layers.fully_connected(action_out, num_outputs=n_actions, activation_fn=None)
+
+    if dueling:
+        with tf.variable_scope("state_value"):
+            state_out = extracted_features
+
+            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.dropout(state_out, keep_prob=0.8)
+            state_out = act_fun(state_out)
+            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.dropout(state_out, keep_prob=0.8)
             state_out = act_fun(state_out)
 
             state_score = tf_layers.fully_connected(state_out, num_outputs=1, activation_fn=None)

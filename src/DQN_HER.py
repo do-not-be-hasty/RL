@@ -173,6 +173,9 @@ class DQN_HER(OffPolicyRLModel):
             self.episode_reward = np.zeros((1,))
 
             for step in range(total_timesteps):
+                # curriculum
+                # self.env.scrambleSize = 1 + step // 500000
+
                 # Take action and update exploration to the newest value
                 kwargs = {}
                 if not self.param_noise:
@@ -191,9 +194,13 @@ class DQN_HER(OffPolicyRLModel):
                     kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                     kwargs['update_param_noise_scale'] = True
                 with self.sess.as_default():
-                    if is_in_loop:
-                        update_eps = (update_eps+1.)/2.
-                    action = self.act(np.array(part_obs)[None], update_eps=update_eps, **kwargs)[0]
+                    # Loop breaking
+                    # if is_in_loop:
+                    #     update_eps_value = (update_eps+1.)/2.
+                    # else:
+                    #     update_eps_value = update_eps
+                    update_eps_value = update_eps
+                    action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
