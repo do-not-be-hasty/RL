@@ -69,8 +69,8 @@ def callback(_locals, _globals):
                        np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
         neptune_logger('failure move diversity',
                        np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
-        neptune_logger('shuffles', _locals['self'].env.scrambleSize)
-        neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
+        # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
+        # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
 
         log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'],
                                   copy.deepcopy(_locals['self'].env))

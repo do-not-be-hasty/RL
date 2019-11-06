@@ -6,7 +6,7 @@ from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, hindsight=1, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100):
+    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100):
         """
         Create Replay buffer.
 
@@ -17,6 +17,7 @@ class ReplayBuffer(object):
         self._maxsize = size
         self._next_idx = 0
         self._hindsight = hindsight
+        self._hindsight_curriculum = hindsight_curriculum
         self._beta = sampling_mean_init
         self._beta_growth = sampling_mean_growth
         self._beta_max = sampling_mean_max
@@ -35,10 +36,11 @@ class ReplayBuffer(object):
         :param obs_tp1: (Any) the current observation
         :param done: (bool) is the episode done
         """
-        # self._beta += len(episode) * self._beta_growth
-        self._beta += self._beta_growth
-        if self._beta > self._beta_max:
-            self._beta = self._beta_max
+        if self._hindsight_curriculum:
+            # self._beta += len(episode) * self._beta_growth
+            self._beta += self._beta_growth
+            if self._beta > self._beta_max:
+                self._beta = self._beta_max
 
         ep_range = self._next_idx + len(episode)
         for d in episode:
@@ -82,9 +84,10 @@ class ReplayBuffer(object):
             if ep_range <= i:
                 ep_range += self._maxsize
 
-            # NOTE trying to take control over hindsight curriculum, plug here
-            # offset = np.random.randint(0, ep_range - i)
-            offset = int(np.random.exponential(self._beta))%(ep_range - i)
+            if self._hindsight_curriculum:
+                offset = int(np.random.exponential(self._beta))%(ep_range - i)
+            else:
+                offset = np.random.randint(0, ep_range - i)
 
             _, _, _, new_obs, _, _ = self._storage[(i+offset) % self._maxsize]
             add_goal = new_obs['achieved_goal']
