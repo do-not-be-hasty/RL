@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-#run as basic_setup.sh PROMETHEUS_LOGIN
-
 set -e
 export PROMETHEUS_LOGIN=$1
 export GRANT_NAME=$2
@@ -9,8 +7,8 @@ export GRANT_NAME=$2
 function prepare_local_venv {
     ENV_DIR=../py35
     source $ENV_DIR/bin/activate
-    pip install wheel
-    pip install psutil
+    pip install wheel --quiet
+    pip install psutil --quiet
     pip install -r ../src/neptune_resources/requirements_local.txt --quiet
 }
 
