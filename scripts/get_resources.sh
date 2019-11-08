@@ -26,3 +26,8 @@ if [ ! -d "$RES_DIR/environment/BitFlipper" ]; then
 	git clone https://github.com/do-not-be-hasty/BitFlipper.git
 	python3.5 -m pip install -e "$RES_DIR/environment/BitFlipper"
 fi
+
+if [ ! -d "$RES_DIR/environment/gym-rubik" ]; then
+	git clone https://github.com/do-not-be-hasty/gym-rubik.git
+	python3.5 -m pip install -e "$RES_DIR/environment/gym-rubik"
+fi

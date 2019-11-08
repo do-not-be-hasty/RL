@@ -2,8 +2,8 @@
 
 set -e # stop on any error
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: ./scripts/run_mrunner [project_name]"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: ./scripts/run_mrunner [project_name] [project_description]"
     exit 1
 fi
 
@@ -57,6 +57,7 @@ source ../py35/bin/activate
 
 export PROJECT_QUALIFIED_NAME="do-not-be-hasty/$PROJECT_NAME"
 export NEPTUNE_API_TOKEN="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5tbCIsImFwaV9rZXkiOiIyY2RlMTgwMi02ZjY1LTQ5NjItOTgxOC1lY2I4ZTAwNDI2OTcifQ=="
+export PROJECT_TAG="$2"
 ssh-add
 
 
@@ -64,6 +65,6 @@ ssh-add
 
 echo "Send job to mrunner"
 cd ${SRC_DIR}
-mrunner --config /tmp/mrunner_config.yaml --context prometheus_cpu run sokoban_conf.py
+mrunner --config /tmp/mrunner_config.yaml --context prometheus_cpu run project_conf.py
 
 deactivate

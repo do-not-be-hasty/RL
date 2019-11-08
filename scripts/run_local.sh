@@ -2,8 +2,8 @@
 
 set -e # stop on any error
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: ./scripts/run_mrunner [project_name]"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: ./scripts/run_mrunner [project_name] [project_description]"
     exit 1
 fi
 
@@ -56,6 +56,10 @@ cd ${SCRIPT_DIR}
 
 export PROJECT_QUALIFIED_NAME="do-not-be-hasty/local"
 export NEPTUNE_API_TOKEN="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5tbCIsImFwaV9rZXkiOiIyY2RlMTgwMi02ZjY1LTQ5NjItOTgxOC1lY2I4ZTAwNDI2OTcifQ=="
+if [ ! -z "$2" ]; then
+        export PROJECT_TAG="$2"
+fi
+
 ssh-add
 
 
@@ -63,4 +67,4 @@ ssh-add
 
 echo "Run experiment locally"
 set -o xtrace
-python ../src/run.py --ex ../src/sokoban_conf.py
+python ../src/run.py --ex ../src/project_conf.py
