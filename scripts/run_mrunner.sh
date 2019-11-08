@@ -56,8 +56,10 @@ source ../py35/bin/activate
 ./basic_setup.sh plgmizaw sim2real
 
 export PROJECT_QUALIFIED_NAME="do-not-be-hasty/$PROJECT_NAME"
-export NEPTUNE_API_TOKEN=""
-export PROJECT_TAG="$2"
+. export_api_token.sh
+if [ ! -z "$2" ]; then
+        export PROJECT_TAG="$2"
+fi
 ssh-add
 
 

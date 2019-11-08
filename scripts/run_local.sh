@@ -55,7 +55,7 @@ cd ${SCRIPT_DIR}
 ./basic_setup.sh plgmizaw sim2real
 
 export PROJECT_QUALIFIED_NAME="do-not-be-hasty/local"
-export NEPTUNE_API_TOKEN=""
+. export_api_token.sh
 if [ ! -z "$2" ]; then
         export PROJECT_TAG="$2"
 fi
