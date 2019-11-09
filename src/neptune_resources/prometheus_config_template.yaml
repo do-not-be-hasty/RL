@@ -9,7 +9,7 @@
      after_module_load_cmd: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/net/people/plgmizaw/cuda_9/lib64/
      partition: plgrid-gpu
      requirements_file: neptune_resources/requirements_remote.txt
-     time: 3000
+     time: 4300
      cpu: 1
      gpu: 1
      mem: 25G

@@ -6,7 +6,7 @@ from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100):
+    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100, sampling_cut=-1):
         """
         Create Replay buffer.
 
@@ -21,9 +21,13 @@ class ReplayBuffer(object):
         self._beta = sampling_mean_init
         self._beta_growth = sampling_mean_growth
         self._beta_max = sampling_mean_max
+        self._sampling_cut = sampling_cut
 
     def __len__(self):
         return len(self._storage)
+
+    def set_sampling_cut(self, sampling_cut):
+        self._sampling_cut = sampling_cut
 
     # def add(self, obs_t, action, reward, obs_tp1, done):
     def add(self, episode):
@@ -87,7 +91,10 @@ class ReplayBuffer(object):
             if self._hindsight_curriculum:
                 offset = int(np.random.exponential(self._beta))%(ep_range - i)
             else:
-                offset = np.random.randint(0, ep_range - i)
+                if self._sampling_cut > 0:
+                    offset = np.random.randint(0, min(ep_range - i, self._sampling_cut))
+                else:
+                    offset = np.random.randint(0, ep_range - i)
 
             _, _, _, new_obs, _, _ = self._storage[(i+offset) % self._maxsize]
             add_goal = new_obs['achieved_goal']

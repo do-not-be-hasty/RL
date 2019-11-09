@@ -31,8 +31,8 @@ def DQN_model(env):
 
 def HER_model(env):
     return HER(
-        policy=partial(DQN_Policy, layers=[1024, 1024]),
-        # policy=partial(CustomPolicy, arch_fun=networks.arch_batchnorm),
+        # policy=partial(DQN_Policy, layers=[1024, 1024]),
+        policy=partial(CustomPolicy, arch_fun=networks.arch_batchnorm),
         env=env,
         hindsight=2,
         learning_rate=3e-5,
