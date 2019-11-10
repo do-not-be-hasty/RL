@@ -41,7 +41,10 @@ def HER_model(env):
         exploration_final_eps=0.1,
         gamma=0.98,
         verbose=1,
+        loop_breaking=True,
         # batch_size=128,
+        # model_save_freq=150*200,
+        # model_save_path="/net/people/plgmizaw/checkpoints/checkpoint",
     )
 
 

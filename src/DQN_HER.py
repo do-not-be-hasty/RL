@@ -1,4 +1,5 @@
 import random
+import sys
 from functools import partial
 
 import tensorflow as tf
@@ -12,6 +13,8 @@ from stable_baselines.common.schedules import LinearSchedule
 from episode_replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 from stable_baselines.a2c.utils import find_trainable_variables, total_episode_reward_logger
+
+from utility import get_cur_time_str, timeit
 
 
 class DQN_HER(OffPolicyRLModel):
@@ -52,7 +55,7 @@ class DQN_HER(OffPolicyRLModel):
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
                  prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
-                 _init_setup_model=True):
+                 _init_setup_model=True, model_save_path="saved_model", model_save_freq=-1, loop_breaking=True):
 
         # TODO: replay_buffer refactoring
         super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
@@ -78,6 +81,9 @@ class DQN_HER(OffPolicyRLModel):
         self.gamma = gamma
         self.hindsight = hindsight
         self.tensorboard_log = tensorboard_log
+        self.model_save_path = model_save_path
+        self.model_save_freq = model_save_freq
+        self.loop_breaking = loop_breaking
 
         self.graph = None
         self.sess = None
@@ -92,6 +98,8 @@ class DQN_HER(OffPolicyRLModel):
         self.params = None
         self.summary = None
         self.episode_reward = None
+        self.steps_made = 0
+        self.episodes_completed = 0
 
         if _init_setup_model:
             self.setup_model()
@@ -135,6 +143,11 @@ class DQN_HER(OffPolicyRLModel):
 
                 self.summary = tf.summary.merge_all()
 
+    def save_model_checkpoint(self):
+        save_path = self.model_save_path + "_" + get_cur_time_str() + "_" + str(self.episodes_completed)
+        print("Saving checkpoint to {0}".format(save_path), file=sys.stderr)
+        self.save(save_path)
+
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="DQN"):
         with SetVerbosity(self.verbose), TensorboardWriter(self.graph, self.tensorboard_log, tb_log_name) as writer:
             self._setup_learn(seed)
@@ -173,10 +186,13 @@ class DQN_HER(OffPolicyRLModel):
             self.episode_reward = np.zeros((1,))
 
             for step in range(total_timesteps):
+                self.steps_made += 1
                 # curriculum
-                curriculum_scrambles = 1 + int(step**(0.5)) // 500
-                curriculum_step_limit = min((curriculum_scrambles) * 2, 100)
-                self.replay_buffer.set_sampling_cut(curriculum_step_limit)
+                curriculum_scrambles = 1 + int(self.steps_made ** (0.50)) // 500
+                curriculum_step_limit = min((curriculum_scrambles + 2) * 2, 100)
+                # self.replay_buffer.set_sampling_cut(curriculum_step_limit)
+                self.env.scrambleSize = curriculum_scrambles
+                self.env.step_limit = curriculum_step_limit
 
                 # Take action and update exploration to the newest value
                 kwargs = {}
@@ -197,11 +213,10 @@ class DQN_HER(OffPolicyRLModel):
                     kwargs['update_param_noise_scale'] = True
                 with self.sess.as_default():
                     # Loop breaking
-                    if is_in_loop:
-                        update_eps_value = (update_eps+1.)/2.
+                    if self.loop_breaking and is_in_loop:
+                        update_eps_value = (update_eps + 1.) / 2.
                     else:
                         update_eps_value = update_eps
-                    update_eps_value = update_eps
                     action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
                 env_action = action
                 reset = False
@@ -239,9 +254,9 @@ class DQN_HER(OffPolicyRLModel):
                     episode_success = episode_success[1:]
                     episode_div.append(len(episode_places))
                     episode_div = episode_div[1:]
-
-                    # episode_finals.append(self.env._distance_to_goal())
-                    # episode_finals = episode_finals[1:]
+                    self.episodes_completed += 1
+                    if self.model_save_freq > 0 and self.episodes_completed % self.model_save_freq == 0:
+                        self.save_model_checkpoint()
 
                     if not isinstance(self.env, VecEnv):
                         full_obs = self.env.reset()
@@ -251,22 +266,6 @@ class DQN_HER(OffPolicyRLModel):
                     self.replay_buffer.add(episode_replays)
                     begin_obs.append(full_obs)
                     begin_obs = begin_obs[1:]
-
-                    # # Hindsight experience
-                    # for i in range(4):
-                    #     (_, _, _, goal_obs) = random.choice(episode_trans)
-                    #     goal = goal_obs['achieved_goal']
-                    #
-                    #     for (obs, action, rew, new_obs) in episode_trans:
-                    #         if np.array_equal(new_obs['observation'], goal):
-                    #             self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
-                    #                                    action, 0., np.concatenate((new_obs['observation'], goal)), 1.)
-                    #             # print(np.concatenate((obs['observation'], goal)), action, 0., np.concatenate((new_obs['observation'], goal)), 1., '\n')
-                    #             break
-                    #         else:
-                    #             self.replay_buffer.add(np.concatenate((obs['observation'], goal)),
-                    #                                    action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
-                    #             # print(np.concatenate((obs['observation'], goal)), action, rew, np.concatenate((new_obs['observation'], goal)), 0.)
 
                     if callback is not None:
                         callback(locals(), globals())
@@ -342,6 +341,15 @@ class DQN_HER(OffPolicyRLModel):
 
         return actions, None
 
+    def predict_q_values(self, observation, state=None, mask=None, deterministic=True):
+        observation = np.array(observation)
+        observation = observation.reshape((-1,) + self.observation_space.shape)
+
+        with self.sess.as_default():
+            _, q_values, _ = self.step_model.step(observation, deterministic=deterministic)
+
+        return q_values
+
     def action_probability(self, observation, state=None, mask=None):
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
@@ -380,7 +388,10 @@ class DQN_HER(OffPolicyRLModel):
             "action_space": self.action_space,
             "policy": self.policy,
             "n_envs": self.n_envs,
-            "_vectorize_action": self._vectorize_action
+            "_vectorize_action": self._vectorize_action,
+            "hindsight": self.hindsight,
+            "model_save_path": self.model_save_path,
+            "model_save_freq": self.model_save_freq,
         }
 
         params = self.sess.run(self.params)

@@ -1,5 +1,7 @@
 import copy
 import os
+import sys
+import time
 from pathlib import Path
 import datetime
 
@@ -18,6 +20,22 @@ def resources_dir():
 
 def get_cur_time_str():
     return datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+
+
+def timeit(method):
+    def timed(*args, **kwargs):
+        begin_time = time.time()
+        result = method(*args, **kwargs)
+        end_time = time.time()
+
+        if 'log_time' in kwargs:
+            name = kwargs.get('log_name', method.__name__.upper())
+            kwargs['log_time'][name] = int((end_time - begin_time))
+        else:
+            print('%r  %2.2f ms' % (method.__name__, (end_time - begin_time)), file=sys.stderr)
+        return result
+
+    return timed
 
 
 def ordering(preds, data_y):
@@ -69,9 +87,9 @@ def callback(_locals, _globals):
                        np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
         neptune_logger('failure move diversity',
                        np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
-        # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
+        neptune_logger('shuffles', _locals['self'].env.scrambleSize)
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
-        neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
+        # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
         log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'],
                                   copy.deepcopy(_locals['self'].env))
