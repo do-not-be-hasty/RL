@@ -56,7 +56,7 @@ def clear_eval(model, env, neval=100):
             action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
             obs, rewards, dones, info = env.step(action)
 
-            if rewards >= 0:
+            if rewards >= -1e-5:
                 return 1
 
             if dones:
@@ -69,6 +69,7 @@ def clear_eval(model, env, neval=100):
 def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10):
     for shuffle in shuffles_list:
         env.scrambleSize = shuffle
+        env.step_limit = 2 * (shuffle + 2)
         neptune_logger('shuffles {0} success rate'.format(shuffle),
                        clear_eval(model, env, neval))
 
@@ -87,7 +88,8 @@ def callback(_locals, _globals):
                        np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
         neptune_logger('failure move diversity',
                        np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
-        neptune_logger('shuffles', _locals['self'].env.scrambleSize)
+        neptune_logger('loss', np.mean(_locals['episode_losses']))
+        # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 

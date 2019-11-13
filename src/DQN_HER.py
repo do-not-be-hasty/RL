@@ -5,6 +5,7 @@ from functools import partial
 import tensorflow as tf
 import numpy as np
 import gym
+from scipy.special import huber
 
 from stable_baselines import logger, deepq
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, TensorboardWriter
@@ -173,6 +174,7 @@ class DQN_HER(OffPolicyRLModel):
             episode_replays = []
             episode_success = [0] * log_interval
             episode_finals = [0] * log_interval
+            episode_losses = []
             is_in_loop = False
 
             episode_places = set()
@@ -188,11 +190,11 @@ class DQN_HER(OffPolicyRLModel):
             for step in range(total_timesteps):
                 self.steps_made += 1
                 # curriculum
-                curriculum_scrambles = 1 + int(self.steps_made ** (0.50)) // 500
-                curriculum_step_limit = min((curriculum_scrambles + 2) * 2, 100)
+                # curriculum_scrambles = 1 + int(self.steps_made ** (0.50)) // 500
+                # curriculum_step_limit = min((curriculum_scrambles + 2) * 2, 100)
                 # self.replay_buffer.set_sampling_cut(curriculum_step_limit)
-                self.env.scrambleSize = curriculum_scrambles
-                self.env.step_limit = curriculum_step_limit
+                # self.env.scrambleSize = curriculum_scrambles
+                # self.env.step_limit = curriculum_step_limit
 
                 # Take action and update exploration to the newest value
                 kwargs = {}
@@ -274,6 +276,7 @@ class DQN_HER(OffPolicyRLModel):
                     episode_trans = []
                     episode_replays = []
                     episode_places = set()
+                    episode_losses = []
                     reset = True
                     is_in_loop = False
 
@@ -303,6 +306,9 @@ class DQN_HER(OffPolicyRLModel):
                     else:
                         _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
                                                         sess=self.sess)
+
+                    loss = np.mean(np.dot(weights, [huber(1., error) for error in td_errors]))
+                    episode_losses.append(loss)
 
                     if self.prioritized_replay:
                         new_priorities = np.abs(td_errors) + self.prioritized_replay_eps

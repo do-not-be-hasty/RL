@@ -43,8 +43,8 @@ def HER_model(env):
         verbose=1,
         loop_breaking=True,
         # batch_size=128,
-        # model_save_freq=150*200,
-        # model_save_path="/net/people/plgmizaw/checkpoints/checkpoint",
+        # model_save_freq=100*200,
+        # model_save_path="/net/people/plgmizaw/checkpoints/fakeonly",
     )
 
 

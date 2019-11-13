@@ -11,12 +11,24 @@ env = make_env_GoalRubik(
     step_limit=10,
 )
 
-model = HER.load("/home/michal/Projekty/RL/tmp/checkpoint_2019-11-09-17:47:42_10.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/hincur_checkpoint_2019-11-11-04:59:42_30000.pkl", env) # RUB-10
 
-env.config(render_cube=True, scramble_size=2)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/hincur_checkpoint_2019-11-11-05:30:01_30000.pkl", env) # RUB-11
+model = HER.load("/home/michal/Projekty/RL/RL/resources/hincur_checkpoint_2019-11-11-18:02:54_60000.pkl", env) # RUB-11
 
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/R7_hind1_checkpoint_2019-11-11-08:00:53_20000.pkl", env) # RUB-17
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/R7_hind1_checkpoint_2019-11-11-14:24:29_40000.pkl", env) # RUB-17
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/R7_hind1_checkpoint_2019-11-11-20:04:16_60000.pkl", env) # RUB-17
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/R7_hind1_checkpoint_2019-11-12-00:48:03_80000.pkl", env) # RUB-17
 
-# print(clear_eval(model, env, 10))
+for i in range(1, 10):
+    env.config(render_cube=True, scramble_size=i)
+    env.step_limit = 2*(i+2)
+    print(i, "scrambles", clear_eval(model, env, 100))
+
+env.config(render_cube=True, scramble_size=4)
+env.step_limit = 15
+
 
 def watch_play(hold=False, sleep_scale=1.):
     with model.sess.as_default(), model.graph.as_default():
@@ -55,4 +67,4 @@ def watch_play(hold=False, sleep_scale=1.):
                 sleep(3 * sleep_scale)
 
 
-watch_play(hold=True, sleep_scale=0.01)
+watch_play(hold=False, sleep_scale=0.01)

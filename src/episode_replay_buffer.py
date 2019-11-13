@@ -145,6 +145,7 @@ class ReplayBuffer(object):
         num_real_goals = int(batch_size//(self._hindsight+1))
         idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
         has_replaced_goal = [False] * num_real_goals + [True] * (batch_size - num_real_goals)
+        # has_replaced_goal = [True] * batch_size # fake goals only
         np.random.shuffle(has_replaced_goal)
 
         return self._encode_sample(idxes, has_replaced_goal, batch_size)
