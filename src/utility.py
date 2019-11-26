@@ -125,6 +125,8 @@ def callback(_locals, _globals):
         neptune_logger('failure move diversity',
                        np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
         neptune_logger('loss', np.mean(_locals['episode_losses']))
+        neptune_logger('loss_min', np.min(_locals['episode_losses']))
+        neptune_logger('loss_max', np.max(_locals['episode_losses']))
         # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
