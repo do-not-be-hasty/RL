@@ -34,7 +34,7 @@ def HER_model(env):
         # policy=partial(DQN_Policy, layers=[1024, 1024]),
         policy=partial(CustomPolicy, arch_fun=networks.arch_batchnorm),
         env=env,
-        hindsight=2,
+        hindsight=1000,
         learning_rate=3e-5,
         buffer_size=2000000,
         exploration_fraction=0.01,
@@ -45,6 +45,7 @@ def HER_model(env):
         # batch_size=128,
         # model_save_freq=100*200,
         # model_save_path="/net/people/plgmizaw/checkpoints/fakeonly",
+        # param_noise=True,
     )
 
 

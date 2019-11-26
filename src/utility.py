@@ -66,12 +66,48 @@ def clear_eval(model, env, neval=100):
     return np.mean(vals)
 
 
+def rubik_ultimate_eval(model, env, neval=100):
+    env = copy.deepcopy(env)
+    scrambles = env.scrambleSize
+    env.scrambleSize = 0
+
+    def single_eval():
+        env.reset()
+        env.randomize(100)
+        env.goal_obs = env._get_state()
+        env.randomize(scrambles)
+        obs = env._get_goal_observation(env._get_state())
+
+        while True:
+            action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
+            obs, rewards, dones, info = env.step(action)
+
+            if rewards >= -1e-5:
+                return 1
+
+            if dones:
+                return 0
+
+    vals = [single_eval() for i in range(neval)]
+    return np.mean(vals)
+
+
 def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10):
+    env = copy.deepcopy(env)
+
     for shuffle in shuffles_list:
         env.scrambleSize = shuffle
         env.step_limit = 2 * (shuffle + 2)
-        neptune_logger('shuffles {0} success rate'.format(shuffle),
-                       clear_eval(model, env, neval))
+        neptune_logger('shuffles {0} success rate'.format(shuffle), clear_eval(model, env, neval))
+
+
+def log_rubik_ultimate_eval(shuffles_list, model, env, neval=10):
+    env = copy.deepcopy(env)
+
+    for shuffle in shuffles_list:
+        env.scrambleSize = shuffle
+        env.step_limit = 2 * (shuffle + 2)
+        neptune_logger('ultimate {0} success rate'.format(shuffle), rubik_ultimate_eval(model, env, neval))
 
 
 def callback(_locals, _globals):
@@ -93,8 +129,8 @@ def callback(_locals, _globals):
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
-        log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'],
-                                  copy.deepcopy(_locals['self'].env))
+        log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'], _locals['self'].env)
+        log_rubik_ultimate_eval([2, 4, 7], _locals['self'], _locals['self'].env)
 
     return False
 

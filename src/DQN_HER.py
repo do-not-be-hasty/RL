@@ -216,7 +216,8 @@ class DQN_HER(OffPolicyRLModel):
                 with self.sess.as_default():
                     # Loop breaking
                     if self.loop_breaking and is_in_loop:
-                        update_eps_value = (update_eps + 1.) / 2.
+                        # update_eps_value = (update_eps + 1.) / 2.
+                        update_eps_value = 1.
                     else:
                         update_eps_value = update_eps
                     action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
