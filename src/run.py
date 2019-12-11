@@ -1,6 +1,7 @@
 from mrunner.helpers.client_helper import get_configuration
 
-from learn import learn_Sokoban_HER, learn_Rubik_DQN, learn_Sokoban_HER_conv, learn_Rubik_HER
+from learn import learn_Sokoban_HER, learn_Rubik_DQN, learn_Sokoban_HER_conv, learn_Rubik_HER, learn_BitFlipper_HER, \
+    learn_Maze_HER
 
 
 def main():
@@ -8,6 +9,8 @@ def main():
 
     # learn_Sokoban_HER_conv()
     learn_Rubik_HER()
+    # learn_BitFlipper_HER()
+    # learn_Maze_HER()
 
 
 if __name__ == '__main__':

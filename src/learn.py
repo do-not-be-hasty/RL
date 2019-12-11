@@ -7,14 +7,16 @@ from models import HER_model, MTR_model, DQN_model, HER_model_conv
 
 
 def learn_BitFlipper_HER():
-    n = 15
+    n = 300
     print("BitFlipper({0}), DQN+HER".format(n))
 
     env = make_env_GoalBitFlipper(n=n, space_seed=15)
     model = HER_model(env)
 
     try:
-        model.learn(total_timesteps=10000 * 16 * n)
+        model.learn(total_timesteps=100000 * 16 * n,
+                    callback=callback,
+                    )
     except KeyboardInterrupt:
         pass
 
@@ -40,14 +42,14 @@ def learn_Maze_HER():
     print("Initial distance: {0}".format(env._distance_diameter()))
 
     try:
-        model.learn(total_timesteps=2000000,
+        model.learn(total_timesteps=20000000,
                     callback=callback,
                     )
     except KeyboardInterrupt:
         pass
 
-    env._set_live_display(True)
-    evaluate(model, env)
+    # env._set_live_display(True)
+    # evaluate(model, env)
 
 
 def learn_Maze_MTR():

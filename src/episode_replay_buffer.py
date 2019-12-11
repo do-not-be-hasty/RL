@@ -68,6 +68,7 @@ class ReplayBuffer(object):
 
             def push_trans(destination, steps, goal, true_replay=False):
                 # TODO true_replay not working yet
+                # TODO rewards discount not counted
                 obses_t.append(np.array(np.concatenate([obs_t['observation'], goal], axis=-1), copy=False))
                 actions.append(np.array(action, copy=False))
                 if np.array_equal(destination['achieved_goal'], goal):
@@ -100,10 +101,22 @@ class ReplayBuffer(object):
                     offset = np.random.randint(0, ep_range - i)
 
             # TODO test multisteps
-            _, _, _, destination_obs, _, _ = self._storage[(i + min(offset, self._multistep)) % self._maxsize]
+            steps = min(self._multistep, offset + 1)
+            _, _, _, destination_obs, _, _ = self._storage[(i + steps - 1) % self._maxsize]
             _, _, _, new_obs, _, _ = self._storage[(i + offset) % self._maxsize]
             add_goal = new_obs['achieved_goal']
-            push_trans(destination_obs, min(offset, self._multistep), add_goal)
+            push_trans(destination_obs, steps, add_goal)
+
+            # Multistep debugs for MazeEnv
+            # TODO extract these lines
+            # o, _, _, _, _, _ = self._storage[(i) % self._maxsize]
+            # middle_obs = [MazeEnv_printable_obs(o['observation'])]
+            # for j in range(steps):
+            #     _, _, _, o, _, _ = self._storage[(i + j) % self._maxsize]
+            #     middle_obs.append(MazeEnv_printable_obs(o['observation']))
+            #
+            # print('replay sample', MazeEnv_printable_goal_obs(obses_t[-1]), actions[-1], rewards[-1], MazeEnv_printable_goal_obs(obses_tp1[-1]), dones[-1],
+            #       middle_obs)
 
         return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
 

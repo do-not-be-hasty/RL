@@ -31,7 +31,7 @@ def DQN_model(env):
 
 def HER_model(env):
     return HER(
-        # policy=partial(DQN_Policy, layers=[1024, 1024]),
+        # policy=partial(DQN_Policy, layers=[256]),
         policy=partial(CustomPolicy, arch_fun=networks.arch_batchnorm),
         env=env,
         hindsight=1000,
@@ -43,7 +43,7 @@ def HER_model(env):
         verbose=1,
         loop_breaking=True,
         # batch_size=128,
-        # model_save_freq=100*200,
+        # model_save_episode_freq=100*200,
         # model_save_path="/net/people/plgmizaw/checkpoints/fakeonly",
         # param_noise=True,
     )

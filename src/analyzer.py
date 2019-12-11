@@ -1,15 +1,15 @@
+import sys
 from time import sleep, time
 import tensorflow as tf
 
 from DQN_HER import DQN_HER as HER
-from environment_builders import make_env_GoalRubik
+from environment_builders import make_env_GoalRubik, make_env_GoalBitFlipper
 from models import HER_model
 import numpy as np
 from utility import clear_eval, model_summary, rubik_ultimate_eval
 
-env = make_env_GoalRubik(
-    step_limit=10,
-)
+env = make_env_GoalRubik(step_limit=15)
+# env = make_env_GoalBitFlipper(n=15, space_seed=None)
 
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/hincur_checkpoint_2019-11-11-04:59:42_30000.pkl", env) # RUB-10
 
@@ -23,13 +23,40 @@ env = make_env_GoalRubik(
 
 model = HER.load("/home/michal/Projekty/RL/RL/resources/fakeonly_2019-11-13-12:01:24_40000.pkl", env) # RUB-21
 
-for i in range(1, 10):
-    env.config(render_cube=True, scramble_size=i)
-    env.step_limit = 2*(i+2)
-    print(i, "scrambles", clear_eval(model, env, 100), rubik_ultimate_eval(model, env, 100))
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:41:05_1000.pkl", env) # 0.002
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:41:38_2000.pkl", env) # 0.002
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:42:10_3000.pkl", env) # 0.002
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:42:42_4000.pkl", env) # 0.006
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:43:14_5000.pkl", env) # 0.087
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:43:44_6000.pkl", env) # 0.571
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:44:11_7000.pkl", env) # 0.944
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:44:34_8000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:44:55_9000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:45:16_10000.pkl", env)
 
-env.config(render_cube=True, scramble_size=7)
-env.step_limit = 15
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:49:27_1000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:50:00_2000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:50:33_3000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:51:06_4000.pkl", env) # 0.001
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:51:39_5000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:52:13_6000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:52:45_7000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:53:14_8000.pkl", env)  # 0.541
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:53:37_9000.pkl", env)
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:53:57_10000.pkl", env)
+
+def simple_eval_Rubik(env):
+    for i in range(1, 10):
+        env.config(render_cube=True, scramble_size=i)
+        env.step_limit = 2 * (i + 2)
+        print(i, "scrambles", clear_eval(model, env, 100), rubik_ultimate_eval(model, env, 100))
+
+    env.config(render_cube=True, scramble_size=7)
+    env.step_limit = 15
+
+
+def simple_eval_BitFlipper(env):
+    print(clear_eval(model, env, 1000))
 
 
 def watch_play(hold=False, sleep_scale=1.):
@@ -38,9 +65,8 @@ def watch_play(hold=False, sleep_scale=1.):
             obs = env.reset()
             env.render()
 
-            if hold:
-                print("RESET")
-            else:
+            print("RESET")
+            if not hold:
                 sleep(2 * sleep_scale)
 
             while True:
@@ -69,4 +95,5 @@ def watch_play(hold=False, sleep_scale=1.):
                 sleep(3 * sleep_scale)
 
 
-watch_play(hold=True, sleep_scale=0.2)
+simple_eval_Rubik(env)
+watch_play(hold=False, sleep_scale=0.2)

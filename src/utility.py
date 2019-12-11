@@ -49,11 +49,18 @@ def ordering(preds, data_y):
     return res / cnt
 
 
-def clear_eval(model, env, neval=100):
+def clear_eval(model, env, neval=100, loop_break=False):
     def single_eval():
+        visited = set()
         obs = env.reset()
+
         while True:
-            action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
+            if loop_break and tuple(obs['observation'].flatten()) in visited:
+                action = env.action_space.sample()
+            else:
+                action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
+                visited.add(tuple(obs['observation'].flatten()))
+
             obs, rewards, dones, info = env.step(action)
 
             if rewards >= -1e-5:
@@ -92,13 +99,14 @@ def rubik_ultimate_eval(model, env, neval=100):
     return np.mean(vals)
 
 
-def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10):
+def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10, loop_break=False):
     env = copy.deepcopy(env)
 
     for shuffle in shuffles_list:
         env.scrambleSize = shuffle
         env.step_limit = 2 * (shuffle + 2)
-        neptune_logger('shuffles {0} success rate'.format(shuffle), clear_eval(model, env, neval))
+        neptune_logger('{0}shuffles {1} success rate'.format('[loop break] ' if loop_break else '', shuffle),
+                       clear_eval(model, env, neval, loop_break))
 
 
 def log_rubik_ultimate_eval(shuffles_list, model, env, neval=10):
@@ -132,6 +140,7 @@ def callback(_locals, _globals):
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
         log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'], _locals['self'].env)
+        log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
         log_rubik_ultimate_eval([2, 4, 7], _locals['self'], _locals['self'].env)
 
     return False
@@ -169,3 +178,17 @@ def evaluate(model, env, steps=1000, verbose=True):
 def model_summary():
     model_vars = tf.trainable_variables()
     slim.model_analyzer.analyze_vars(model_vars, print_info=True)
+
+
+def MazeEnv_printable_goal_obs(self, obs):
+    n = obs.shape[0] // 4
+    return '[({0},{1})->({2},{3})]'.format(np.where(obs[:n] == 1)[0][0],
+                                           np.where(obs[n:2 * n] == 1)[0][0],
+                                           np.where(obs[2 * n:3 * n] == 1)[0][0],
+                                           np.where(obs[3 * n:4 * n] == 1)[0][0])
+
+
+def MazeEnv_printable_obs(self, obs):
+    n = obs.shape[0] // 2
+    return '({0},{1})'.format(np.where(obs[:n] == 1)[0][0],
+                              np.where(obs[n:2 * n] == 1)[0][0])

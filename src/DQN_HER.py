@@ -56,7 +56,7 @@ class DQN_HER(OffPolicyRLModel):
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
                  prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
-                 _init_setup_model=True, model_save_path="saved_model", model_save_freq=-1, loop_breaking=True):
+                 _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True):
 
         # TODO: replay_buffer refactoring
         super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
@@ -83,7 +83,7 @@ class DQN_HER(OffPolicyRLModel):
         self.hindsight = hindsight
         self.tensorboard_log = tensorboard_log
         self.model_save_path = model_save_path
-        self.model_save_freq = model_save_freq
+        self.model_save_freq = model_save_episode_freq
         self.loop_breaking = loop_breaking
 
         self.graph = None
