@@ -7,7 +7,7 @@ from models import HER_model, MTR_model, DQN_model, HER_model_conv
 
 
 def learn_BitFlipper_HER():
-    n = 300
+    n = 150
     print("BitFlipper({0}), DQN+HER".format(n))
 
     env = make_env_GoalBitFlipper(n=n, space_seed=15)
