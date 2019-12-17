@@ -1,21 +1,14 @@
+import copy
+import random
+
+import keras
 import numpy as np
 from keras import Sequential
-from keras.layers import Dense, Flatten
+from keras.layers import Dense, Flatten, BatchNormalization
 from rubik_solver import utils as rubik_solver
-from gym_rubik.envs.cube import Actions, Cube
+from mrunner.helpers.client_helper import logger as neptune_logger
 
 from environment_builders import make_env_Rubik
-
-env = make_env_Rubik(step_limit=100, shuffles=5)
-print(env.observation_space.sample().shape)
-
-model = Sequential()
-model.add(Flatten(input_shape=env.observation_space.sample().shape))
-model.add(Dense(256, activation='relu'))
-model.add(Dense(256, activation='relu'))
-model.add(Dense(env.action_space.n, activation='softmax'))
-
-model.summary()
 
 
 def cube_labels():
@@ -56,24 +49,127 @@ def move_to_action(move):
     return move_to_action_lookup[str(move)]
 
 
-def run_policy(model, env):
+def run_policy_single(model, env):
     obs = env.reset()
 
-    while (2):
+    while True:
         action = model.predict(np.array([obs]))[0].argmax()
-        print(action)
+        # action = random.randint(0, 11)
         obs, rewards, dones, info = env.step(action)
-        print(cube_bin_to_str(obs))
 
         if dones:
-            return rewards
+            return rewards == 0
 
 
-obs = env.reset()
-for action in [move_to_action(move) for move in quarterize(rubik_solver.solve(cube_bin_to_str(obs), 'Kociemba'))]:
-    obs, rewards, dones, info = env.step(action)
-    print(cube_bin_to_str(obs))
-    print(dones)
+def evaluate(model, env, num_episodes, num_shuffles):
+    env = copy.deepcopy(env)
+    # env.config(scramble_size=num_shuffles)
+    env.scrambleSize = num_shuffles
+    return np.mean([run_policy_single(model, env) for _ in range(num_episodes)])
 
 
-# run_policy(model, env)
+action_encoder = np.eye(len(action_to_move_lookup.keys()))
+
+
+def action_to_one_hot(action):
+    return action_encoder[action]
+
+
+class Buffer:
+    def __init__(self, size):
+        self.buffer = []
+        self.place = 0
+        self.size = size
+
+    def add(self, entry):
+        if len(self.buffer) < self.size:
+            self.buffer.append(entry)
+            return
+
+        if self.place >= len(self.buffer):
+            self.place = 0
+
+        self.buffer[self.place] = entry
+        self.place += 1
+
+    def one_hot_actions(self, actions):
+        return [action_to_one_hot(action) for action in actions]
+
+    def sample(self, batch_size):
+        idxes = [random.randint(0, len(self.buffer) - 1) for _ in range(batch_size)]
+        observations = [self.buffer[i][0] for i in idxes]
+        actions = [self.buffer[i][1] for i in idxes]
+        return np.array(observations), np.array(self.one_hot_actions(actions), dtype=np.float)
+
+
+def reverse_move(move):
+    if len(move) == 1:
+        return move + "'"
+    else:
+        return move[:-1]
+
+
+def push_drift(env, expert_action, buffer):
+    for move in action_to_move_lookup.values():
+        if move == expert_action:
+            continue
+        if random.randint(0,3) != 0:
+            continue
+
+        tmp_env = copy.deepcopy(env)
+        obs, _, _, _ = tmp_env.step(move_to_action(move))
+        buffer.add((obs, move_to_action(reverse_move(move))))
+
+
+def supervised_Rubik():
+    buffer = Buffer(1e6)
+    step = 0
+    batch = 32
+
+    env = make_env_Rubik(step_limit=100, shuffles=10)
+
+    model = Sequential()
+    model.add(Flatten(input_shape=env.observation_space.sample().shape))
+    model.add(Dense(1024, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Dense(1024, activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Dense(env.action_space.n, activation='softmax'))
+
+    model.summary()
+    model.compile(optimizer='adam', loss=keras.losses.categorical_crossentropy, metrics=['accuracy'])
+    print(model.metrics_names)
+
+    while True:
+        obs = env.reset()
+        print(cube_bin_to_str(obs))
+        solution = [move_to_action(move) for move in quarterize(rubik_solver.solve(cube_bin_to_str(obs), 'Kociemba'))]
+
+        for action in solution:
+            push_drift(env, action, buffer)
+
+            buffer.add((obs, action))
+            obs, rewards, dones, info = env.step(action)
+            # print(cube_bin_to_str(obs))
+            # print(dones)
+
+            if step > 100:
+                inputs, targets = buffer.sample(batch)
+                model.train_on_batch(inputs, targets)
+
+            step += 1
+
+            if step % 1000 == 0:
+                print('\n{0} steps'.format(step))
+                for i in [2, 4, 7, 10, 13, 19, 25]:
+                    score = evaluate(model, env, 10, i)
+                    neptune_logger('shuffles {0} success rate'.format(i), score)
+
+                inputs, targets = buffer.sample(256)
+                metrics = model.evaluate(inputs, targets)
+                neptune_logger('loss', metrics[0])
+                neptune_logger('accuracy', metrics[1])
+
+
+if __name__ == '__main__':
+    supervised_Rubik()
