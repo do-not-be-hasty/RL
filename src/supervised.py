@@ -4,7 +4,10 @@ import random
 import keras
 import numpy as np
 from keras import Sequential
+from keras import backend as K
 from keras.layers import Dense, Flatten, BatchNormalization
+from keras.regularizers import l2
+from keras.optimizers import Adam, SGD
 from rubik_solver import utils as rubik_solver
 from mrunner.helpers.client_helper import logger as neptune_logger
 
@@ -121,31 +124,64 @@ def push_drift(env, expert_action, buffer):
         buffer.add((obs, move_to_action(reverse_move(move))))
 
 
+def push_simple_solver(obs, env, buffer):
+    env = copy.deepcopy(env)
+    solution = [move_to_action(move) for move in quarterize(rubik_solver.solve(cube_bin_to_str(obs), 'Kociemba'))]
+
+    for action in solution:
+        buffer.add((obs, action))
+        obs, rewards, dones, info = env.step(action)
+
+
+def policy_rollout(model, env, buffer, shuffles, solver_freq):
+    env = copy.deepcopy(env)
+    env.scrambleSize = shuffles
+    obs = env.reset()
+
+    while True:
+        action = model.predict(np.array([obs]))[0].argmax()
+        obs, rewards, dones, info = env.step(action)
+
+        if dones:
+            return
+
+        if random.random() < solver_freq:
+            push_simple_solver(obs, env, buffer)
+
+
 def supervised_Rubik():
     buffer = Buffer(1e6)
     step = 0
     batch = 32
+    decay = 0.
 
-    env = make_env_Rubik(step_limit=100, shuffles=10)
+    env = make_env_Rubik(step_limit=50, shuffles=10)
 
     model = Sequential()
     model.add(Flatten(input_shape=env.observation_space.sample().shape))
-    model.add(Dense(1024, activation='relu'))
+    model.add(Dense(1024, activation='relu', kernel_regularizer=l2(decay)))
     model.add(BatchNormalization())
-    model.add(Dense(1024, activation='relu'))
+    model.add(Dense(1024, activation='relu', kernel_regularizer=l2(decay)))
     model.add(BatchNormalization())
     model.add(Dense(env.action_space.n, activation='softmax'))
 
     model.summary()
-    model.compile(optimizer='adam', loss=keras.losses.categorical_crossentropy, metrics=['accuracy'])
+
+    lr = 1e-3
+    optimizer = Adam(lr=lr)
+    model.compile(optimizer=optimizer, loss=keras.losses.categorical_crossentropy, metrics=['accuracy'])
+
     print(model.metrics_names)
 
+    # simple imitation
     while True:
+        # env.scrambleSize = random.randint(7, 20)
         obs = env.reset()
         print(cube_bin_to_str(obs))
         solution = [move_to_action(move) for move in quarterize(rubik_solver.solve(cube_bin_to_str(obs), 'Kociemba'))]
 
         for action in solution:
+            # print(model.optimizer.get_config())
             push_drift(env, action, buffer)
 
             buffer.add((obs, action))
@@ -156,6 +192,9 @@ def supervised_Rubik():
             if step > 100:
                 inputs, targets = buffer.sample(batch)
                 model.train_on_batch(inputs, targets)
+
+                lr *= 0.99999
+                K.set_value(model.optimizer.lr, lr)
 
             step += 1
 
@@ -169,6 +208,29 @@ def supervised_Rubik():
                 metrics = model.evaluate(inputs, targets)
                 neptune_logger('loss', metrics[0])
                 neptune_logger('accuracy', metrics[1])
+                neptune_logger('learning rate', lr)
+
+    # dagger
+    # while True:
+    #     policy_rollout(model, env, buffer, 10, 0.1)
+    #
+    #     if step > 100:
+    #         for _ in range(100):
+    #             inputs, targets = buffer.sample(batch)
+    #             model.train_on_batch(inputs, targets)
+    #
+    #         if step % 10 == 0:
+    #             print('\n{0} steps'.format(step))
+    #             for i in [2, 4, 7, 10, 13, 19, 25]:
+    #                 score = evaluate(model, env, 10, i)
+    #                 neptune_logger('shuffles {0} success rate'.format(i), score)
+    #
+    #             inputs, targets = buffer.sample(256)
+    #             metrics = model.evaluate(inputs, targets)
+    #             neptune_logger('loss', metrics[0])
+    #             neptune_logger('accuracy', metrics[1])
+    #
+    #     step += 1
 
 
 if __name__ == '__main__':
