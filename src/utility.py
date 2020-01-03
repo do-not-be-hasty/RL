@@ -180,7 +180,7 @@ def model_summary():
     slim.model_analyzer.analyze_vars(model_vars, print_info=True)
 
 
-def MazeEnv_printable_goal_obs(self, obs):
+def MazeEnv_printable_goal_obs(obs):
     n = obs.shape[0] // 4
     return '[({0},{1})->({2},{3})]'.format(np.where(obs[:n] == 1)[0][0],
                                            np.where(obs[n:2 * n] == 1)[0][0],
@@ -188,7 +188,7 @@ def MazeEnv_printable_goal_obs(self, obs):
                                            np.where(obs[3 * n:4 * n] == 1)[0][0])
 
 
-def MazeEnv_printable_obs(self, obs):
+def MazeEnv_printable_obs(obs):
     n = obs.shape[0] // 2
     return '({0},{1})'.format(np.where(obs[:n] == 1)[0][0],
                               np.where(obs[n:2 * n] == 1)[0][0])

@@ -9,10 +9,10 @@ def main():
     params = get_configuration(print_diagnostics=True, with_neptune=True)
 
     # learn_Sokoban_HER_conv()
-    # learn_Rubik_HER()
+    learn_Rubik_HER()
     # learn_BitFlipper_HER()
     # learn_Maze_HER()
-    supervised_Rubik()
+    # supervised_Rubik()
 
 
 if __name__ == '__main__':

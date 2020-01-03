@@ -3,11 +3,12 @@ import random
 import numpy as np
 
 from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
+from utility import MazeEnv_printable_obs, MazeEnv_printable_goal_obs
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2.,
-                 sampling_mean_growth=0.0003, sampling_mean_max=100, sampling_cut=-1, multistep=6):
+    def __init__(self, size, gamma, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2.,
+                 sampling_mean_growth=0.0003, sampling_mean_max=100, sampling_cut=-1, multistep=1):
         """
         Create Replay buffer.
 
@@ -24,6 +25,18 @@ class ReplayBuffer(object):
         self._beta_max = sampling_mean_max
         self._sampling_cut = sampling_cut
         self._multistep = multistep
+        self._gamma = gamma
+        self._reward_unfinished = None
+        self._reward_finished = None
+
+        self.init_discounted_rewards()
+
+    def init_discounted_rewards(self):
+        reward_unfinished = [-(self._gamma ** i - 1) / (self._gamma - 1) for i in range(self._multistep + 3)]
+        reward_finished = [0] + reward_unfinished
+
+        self._reward_unfinished = reward_unfinished
+        self._reward_finished = reward_finished
 
     def __len__(self):
         return len(self._storage)
@@ -66,16 +79,17 @@ class ReplayBuffer(object):
             obs_t, action, reward, obs_tp1, done, ep_range = data
             replace_goal = has_replaced_goal[it]
 
-            def push_trans(destination, steps, goal, true_replay=False):
+            def push_trans(destination, steps, goal, true_replay=False, reward_unfinished=self._reward_unfinished,
+                           reward_finished=self._reward_finished):
                 # TODO true_replay not working yet
                 # TODO rewards discount not counted
                 obses_t.append(np.array(np.concatenate([obs_t['observation'], goal], axis=-1), copy=False))
                 actions.append(np.array(action, copy=False))
                 if np.array_equal(destination['achieved_goal'], goal):
-                    rewards.append(-steps + 1)
+                    rewards.append(reward_finished[steps])
                     dones.append(1)
                 else:
-                    rewards.append(-steps)
+                    rewards.append(reward_unfinished[steps])
                     if true_replay:
                         dones.append(done)
                     else:

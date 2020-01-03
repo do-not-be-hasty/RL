@@ -116,7 +116,7 @@ def push_drift(env, expert_action, buffer):
     for move in action_to_move_lookup.values():
         if move == expert_action:
             continue
-        if random.randint(0,3) != 0:
+        if random.randint(0, 3) != 0:
             continue
 
         tmp_env = copy.deepcopy(env)
@@ -193,7 +193,7 @@ def supervised_Rubik():
                 inputs, targets = buffer.sample(batch)
                 model.train_on_batch(inputs, targets)
 
-                lr *= 0.99999
+                lr *= 0.999999
                 K.set_value(model.optimizer.lr, lr)
 
             step += 1

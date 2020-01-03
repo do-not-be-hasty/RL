@@ -15,7 +15,7 @@ from episode_replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 from stable_baselines.a2c.utils import find_trainable_variables, total_episode_reward_logger
 
-from utility import get_cur_time_str, timeit
+from utility import get_cur_time_str, timeit, MazeEnv_printable_obs
 
 
 class DQN_HER(OffPolicyRLModel):
@@ -56,7 +56,7 @@ class DQN_HER(OffPolicyRLModel):
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
                  prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
-                 _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True):
+                 _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True, multistep=6):
 
         # TODO: replay_buffer refactoring
         super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
@@ -85,6 +85,7 @@ class DQN_HER(OffPolicyRLModel):
         self.model_save_path = model_save_path
         self.model_save_freq = model_save_episode_freq
         self.loop_breaking = loop_breaking
+        self.multistep = multistep
 
         self.graph = None
         self.sess = None
@@ -124,13 +125,15 @@ class DQN_HER(OffPolicyRLModel):
                 self.sess = tf_util.make_session(graph=self.graph)
 
                 optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+                # optimizer = tf.contrib.opt.NadamOptimizer(learning_rate=self.learning_rate)
+                # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-3, momentum=0.9, use_nesterov=True)
 
                 self.act, self._train_step, self.update_target, self.step_model = deepq.build_train(
                     q_func=self.policy,
                     ob_space=self.observation_space,
                     ac_space=self.action_space,
                     optimizer=optimizer,
-                    gamma=self.gamma,
+                    gamma=self.gamma ** self.multistep,
                     grad_norm_clipping=10,
                     param_noise=self.param_noise,
                     sess=self.sess
@@ -162,7 +165,7 @@ class DQN_HER(OffPolicyRLModel):
                                                         initial_p=self.prioritized_replay_beta0,
                                                         final_p=1.0)
             else:
-                self.replay_buffer = ReplayBuffer(self.buffer_size, hindsight=self.hindsight)
+                self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.
             self.exploration = LinearSchedule(schedule_timesteps=int(self.exploration_fraction * total_timesteps),
