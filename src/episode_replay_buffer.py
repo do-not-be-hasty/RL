@@ -79,24 +79,6 @@ class ReplayBuffer(object):
             obs_t, action, reward, obs_tp1, done, ep_range = data
             replace_goal = has_replaced_goal[it]
 
-            def push_trans(destination, steps, goal, true_replay=False, reward_unfinished=self._reward_unfinished,
-                           reward_finished=self._reward_finished):
-                # TODO true_replay not working yet
-                # TODO rewards discount not counted
-                obses_t.append(np.array(np.concatenate([obs_t['observation'], goal], axis=-1), copy=False))
-                actions.append(np.array(action, copy=False))
-                if np.array_equal(destination['achieved_goal'], goal):
-                    rewards.append(reward_finished[steps])
-                    dones.append(1)
-                else:
-                    rewards.append(reward_unfinished[steps])
-                    if true_replay:
-                        dones.append(done)
-                    else:
-                        dones.append(0)
-                obses_tp1.append(np.array(np.concatenate([destination['achieved_goal'], goal], axis=-1), copy=False))
-                # print(obses_t[-1], actions[-1], rewards[-1], obses_tp1[-1], dones[-1])
-
             if not replace_goal:
                 # TODO check if this works with original goals (now it does not)
                 assert (False)
@@ -116,9 +98,49 @@ class ReplayBuffer(object):
 
             # TODO test multisteps
             steps = min(self._multistep, offset + 1)
+            init_offset = 0
+            for j in range(steps):
+                position = (i + j) % self._maxsize
+                visited_obs, _, _, _, _, _ = self._storage[position]
+                if np.array_equal(obs_t['observation'], visited_obs['observation']):
+                    obs_t, action, reward, obs_tp1, done, ep_range = self._storage[position]
+                    init_offset = j
+
+            i = (i + init_offset) % self._maxsize
+            steps -= init_offset
+            offset -= init_offset
+
             _, _, _, destination_obs, _, _ = self._storage[(i + steps - 1) % self._maxsize]
-            _, _, _, new_obs, _, _ = self._storage[(i + offset) % self._maxsize]
-            add_goal = new_obs['achieved_goal']
+
+            for j in range(steps):
+                position = (i + j) % self._maxsize
+                _, _, _, middle_obs, _, _ = self._storage[position]
+                if np.array_equal(middle_obs['achieved_goal'], destination_obs['achieved_goal']):
+                    destination_obs = middle_obs
+                    steps = j + 1
+                    break
+
+            _, _, _, goal_obs, _, _ = self._storage[(i + offset) % self._maxsize]
+            add_goal = goal_obs['achieved_goal']
+
+            def push_trans(destination, steps, goal, true_replay=False, reward_unfinished=self._reward_unfinished,
+                           reward_finished=self._reward_finished):
+                # TODO true_replay not working yet
+                # TODO rewards discount not counted
+                obses_t.append(np.array(np.concatenate([obs_t['observation'], goal], axis=-1), copy=False))
+                actions.append(np.array(action, copy=False))
+                if np.array_equal(destination['achieved_goal'], goal):
+                    rewards.append(reward_finished[steps])
+                    dones.append(1)
+                else:
+                    rewards.append(reward_unfinished[steps])
+                    if true_replay:
+                        dones.append(done)
+                    else:
+                        dones.append(0)
+                obses_tp1.append(np.array(np.concatenate([destination['achieved_goal'], goal], axis=-1), copy=False))
+                # print(obses_t[-1], actions[-1], rewards[-1], obses_tp1[-1], dones[-1])
+
             push_trans(destination_obs, steps, add_goal)
 
             # Multistep debugs for MazeEnv

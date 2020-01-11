@@ -233,5 +233,27 @@ def supervised_Rubik():
     #     step += 1
 
 
+def prepare_solutions(shuffles, count):
+    initial_pos = []
+    moves = []
+
+    env = make_env_Rubik(step_limit=100, shuffles=shuffles)
+
+    for i in range(count):
+        obs = env.reset()
+        print(cube_bin_to_str(obs))
+        solution = [move_to_action(move) for move in quarterize(rubik_solver.solve(cube_bin_to_str(obs), 'Kociemba'))]
+        print(solution)
+
+        initial_pos.append(obs)
+        moves.append(solution)
+
+    result = np.array([initial_pos, moves])
+    print(result)
+    np.save("solutions.npy", result)
+
+
+
 if __name__ == '__main__':
-    supervised_Rubik()
+    # supervised_Rubik()
+    prepare_solutions(100, 5)
