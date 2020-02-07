@@ -210,3 +210,123 @@ def arch_batchnorm_regularization(processed_obs, act_fun, n_actions, dueling):
         q_out = action_scores
 
     return q_out
+
+
+def arch_color_embedding(processed_obs, act_fun, n_actions, dueling):
+    with tf.variable_scope("action_value") as scope:
+        labs = [tf_layers.layer_norm(tf.layers.flatten(tf.concat([processed_obs[:, :, :, :, i], processed_obs[:, :, :, :, i+6]], axis=-1)), center=True, scale=True) for i in range(6)]
+        features = [tf_layers.fully_connected(labs[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_1') for i in
+                    range(6)]
+        features = [act_fun(feature) for feature in features]
+        features = [tf_layers.fully_connected(features[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_2') for i in range(6)]
+        # features = [act_fun(feature) for feature in features]
+        # features = [tf_layers.fully_connected(features[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_3') for i in range(6)]
+
+        action_out = features[0] + features[1] + features[2] + features[3] + features[4] + features[5]
+
+        action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
+        action_out = act_fun(action_out)
+        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
+        action_out = act_fun(action_out)
+
+        action_scores = tf_layers.fully_connected(action_out, num_outputs=n_actions, activation_fn=None)
+
+    if dueling:
+        with tf.variable_scope("state_value") as scope:
+            # labs = [tf_layers.layer_norm(tf.layers.flatten(tf.concat([processed_obs[:, :, :, :, i], processed_obs[:, :, :, :, i+6]], axis=-1)), center=True, scale=True) for i in range(6)]
+            # features = [tf_layers.fully_connected(labs[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_1') for i
+            #             in range(6)]
+            # features = [act_fun(feature) for feature in features]
+            # features = [tf_layers.fully_connected(features[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_2') for i in range(6)]
+
+            state_out = features[0] + features[1] + features[2] + features[3] + features[4] + features[5]
+
+            state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
+            state_out = act_fun(state_out)
+            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
+            state_out = act_fun(state_out)
+
+            state_score = tf_layers.fully_connected(state_out, num_outputs=1, activation_fn=None)
+
+        action_scores_mean = tf.reduce_mean(action_scores, axis=1)
+        action_scores_centered = action_scores - tf.expand_dims(action_scores_mean, axis=1)
+        q_out = state_score + action_scores_centered
+    else:
+        q_out = action_scores
+
+    return q_out
+
+
+def arch_permutation(processed_obs, act_fun, n_actions, dueling):
+    with tf.variable_scope("action_value") as scope:
+        extracted_features = tf.layers.flatten(processed_obs)
+
+        # labs = [tf_layers.layer_norm(tf.layers.flatten(tf.concat([processed_obs[:, :, :, :, i], processed_obs[:, :, :, :, i+6]], axis=-1)), center=True, scale=True) for i in range(6)]
+        # features = [tf_layers.fully_connected(labs[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope=scope) for i in
+        #             range(6)]
+
+        # basic_features = tf_layers.fully_connected(extracted_features, num_outputs=1024, activation_fn=None)
+        # basic_features = tf_layers.layer_norm(basic_features, center=True, scale=True)
+        # action_out = features[0] + features[1] + features[2] + features[3] + features[4] + features[5]
+        # action_out = tf.concat([action_out, basic_features], axis=-1)
+
+        cubes = []
+        for i in range(6):
+            tmp = []
+            for j in range(6):
+                tmp.append(processed_obs[:, :, :, :, (i + j) % 6])
+            for j in range(6):
+                tmp.append(processed_obs[:, :, :, :, 6 + (i + j) % 6])
+            process = tf_layers.fully_connected(tf.layers.flatten(tf.concat(tmp, axis=-1)), num_outputs=1024, activation_fn=None,
+                                                reuse=(None if i == 0 else True), scope=scope)
+            cubes.append(tf_layers.layer_norm(process, center=True, scale=True))
+        action_out = cubes[0] + cubes[1] + cubes[2] + cubes[3] + cubes[4] + cubes[5]
+
+        action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
+        action_out = act_fun(action_out)
+        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
+        action_out = act_fun(action_out)
+
+        action_scores = tf_layers.fully_connected(action_out, num_outputs=n_actions, activation_fn=None)
+
+    if dueling:
+        with tf.variable_scope("state_value") as scope:
+            # labs = [tf_layers.layer_norm(tf.layers.flatten(tf.concat([processed_obs[:, :, :, :, i], processed_obs[:, :, :, :, i+6]], axis=-1)), center=True, scale=True) for i in range(6)]
+            # features = [tf_layers.fully_connected(labs[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope=scope) for i
+            #             in range(6)]
+
+            # basic_features = tf_layers.fully_connected(extracted_features, num_outputs=1024, activation_fn=None)
+            # basic_features = tf_layers.layer_norm(basic_features, center=True, scale=True)
+            # state_out = features[0] + features[1] + features[2] + features[3] + features[4] + features[5]
+            # state_out = tf.concat([state_out, basic_features], axis=-1)
+
+            cubes = []
+            for i in range(6):
+                tmp = []
+                for j in range(6):
+                    tmp.append(processed_obs[:, :, :, :, (i + j) % 6])
+                for j in range(6):
+                    tmp.append(processed_obs[:, :, :, :, 6 + (i + j) % 6])
+                process = tf_layers.fully_connected(tf.layers.flatten(tf.concat(tmp, axis=-1)), num_outputs=1024, activation_fn=None,
+                                                    reuse=(None if i == 0 else True), scope=scope)
+                cubes.append(tf_layers.layer_norm(process, center=True, scale=True))
+            state_out = cubes[0] + cubes[1] + cubes[2] + cubes[3] + cubes[4] + cubes[5]
+
+            state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
+            state_out = act_fun(state_out)
+            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
+            state_out = act_fun(state_out)
+
+            state_score = tf_layers.fully_connected(state_out, num_outputs=1, activation_fn=None)
+
+        action_scores_mean = tf.reduce_mean(action_scores, axis=1)
+        action_scores_centered = action_scores - tf.expand_dims(action_scores_mean, axis=1)
+        q_out = state_score + action_scores_centered
+    else:
+        q_out = action_scores
+
+    return q_out

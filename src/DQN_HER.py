@@ -133,7 +133,7 @@ class DQN_HER(OffPolicyRLModel):
                     ob_space=self.observation_space,
                     ac_space=self.action_space,
                     optimizer=optimizer,
-                    gamma=self.gamma ** self.multistep,
+                    gamma=self.gamma,
                     grad_norm_clipping=10,
                     param_noise=self.param_noise,
                     sess=self.sess
@@ -165,7 +165,8 @@ class DQN_HER(OffPolicyRLModel):
                                                         initial_p=self.prioritized_replay_beta0,
                                                         final_p=1.0)
             else:
-                self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
+                # self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
+                self.replay_buffer = ReplayBuffer(self.buffer_size, hindsight=self.hindsight)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.
             self.exploration = LinearSchedule(schedule_timesteps=int(self.exploration_fraction * total_timesteps),

@@ -32,7 +32,7 @@ def DQN_model(env):
 def HER_model(env):
     return HER(
         # policy=partial(DQN_Policy, layers=[256]),
-        policy=partial(CustomPolicy, arch_fun=networks.arch_batchnorm),
+        policy=partial(CustomPolicy, arch_fun=networks.arch_color_embedding),
         env=env,
         hindsight=1000,
         learning_rate=3e-5,
@@ -42,9 +42,10 @@ def HER_model(env):
         gamma=0.98,
         verbose=1,
         loop_breaking=True,
+        multistep=1,
         # batch_size=128,
         # model_save_episode_freq=100*200,
-        # model_save_path="/net/people/plgmizaw/checkpoints/fakeonly",
+        # model_save_path="/net/people/plgmizaw/checkpoints/colour_emb_",
         # param_noise=True,
     )
 
