@@ -56,7 +56,7 @@ class DQN_HER(OffPolicyRLModel):
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
                  prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
-                 _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True, multistep=6):
+                 _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True, multistep=6, boltzmann=False):
 
         # TODO: replay_buffer refactoring
         super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
@@ -86,6 +86,7 @@ class DQN_HER(OffPolicyRLModel):
         self.model_save_freq = model_save_episode_freq
         self.loop_breaking = loop_breaking
         self.multistep = multistep
+        self.boltzmann = boltzmann
 
         self.graph = None
         self.sess = None
@@ -224,7 +225,12 @@ class DQN_HER(OffPolicyRLModel):
                         update_eps_value = 1.
                     else:
                         update_eps_value = update_eps
-                    action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
+                    if self.boltzmann:
+                        values = self.predict_q_values(np.array(part_obs))[0]
+                        exp = 1. / update_eps_value
+                        action = np.random.choice(np.arange(0, values.shape[0]), p=(exp ** values) / sum(exp ** values))
+                    else:
+                        action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
