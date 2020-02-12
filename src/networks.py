@@ -111,6 +111,43 @@ def arch_batchnorm(processed_obs, act_fun, n_actions, dueling):
     return q_out
 
 
+def arch_batchnorm_shared_features(processed_obs, act_fun, n_actions, dueling):
+    with tf.variable_scope("action_value"):
+        extracted_features = tf.layers.flatten(processed_obs)
+        extracted_features = tf_layers.fully_connected(extracted_features, num_outputs=1024, activation_fn=None)
+        extracted_features = tf_layers.layer_norm(extracted_features, center=True, scale=True)
+        extracted_features = act_fun(extracted_features)
+        extracted_features = tf_layers.fully_connected(extracted_features, num_outputs=1024, activation_fn=None)
+        extracted_features = tf_layers.layer_norm(extracted_features, center=True, scale=True)
+        extracted_features = act_fun(extracted_features)
+
+        action_out = extracted_features
+
+        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
+        action_out = act_fun(action_out)
+
+        action_scores = tf_layers.fully_connected(action_out, num_outputs=n_actions, activation_fn=None)
+
+    if dueling:
+        with tf.variable_scope("state_value"):
+            state_out = extracted_features
+
+            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
+            state_out = act_fun(state_out)
+
+            state_score = tf_layers.fully_connected(state_out, num_outputs=1, activation_fn=None)
+
+        action_scores_mean = tf.reduce_mean(action_scores, axis=1)
+        action_scores_centered = action_scores - tf.expand_dims(action_scores_mean, axis=1)
+        q_out = state_score + action_scores_centered
+    else:
+        q_out = action_scores
+
+    return q_out
+
+
 def arch_dropout(processed_obs, act_fun, n_actions, dueling):
     with tf.variable_scope("action_value"):
         extracted_features = tf.layers.flatten(processed_obs)
