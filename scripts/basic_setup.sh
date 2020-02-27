@@ -5,7 +5,7 @@ export PROMETHEUS_LOGIN=$1
 export GRANT_NAME=$2
 
 function prepare_local_venv {
-    ENV_DIR=../py35
+    ENV_DIR=../py36
     source $ENV_DIR/bin/activate
     pip install wheel --quiet
     pip install psutil --quiet

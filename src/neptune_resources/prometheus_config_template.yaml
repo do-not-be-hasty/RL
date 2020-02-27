@@ -7,15 +7,15 @@
      - plgrid/tools/python/3.6.5
      - plgrid/apps/cuda/9.0
      after_module_load_cmd: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/net/people/plgmizaw/cuda_9/lib64/
-     partition: plgrid-gpu
+     partition: plgrid
      requirements_file: neptune_resources/requirements_remote.txt
      time: 4300
-     cpu: 1
-     gpu: 1
+     cpu: 24
+     gpu: 0
      mem: 25G
      slurm_url: <username>@pro.cyfronet.pl
      storage_dir: /net/archive/groups/plggluna/<username>
-     venv: /net/people/<username>/RL/py35
+     venv: /net/people/<username>/RL/py36
 
    eagle_cpu:
      account: <grantname>
@@ -24,13 +24,13 @@
      modules_to_load:
      partition: plgrid-gpu
      requirements_file: neptune_resources/requirements_remote.txt
-     time: 3000
+     time: 4300
      cpu: 1
      gpu: 1
      mem: 25G
      slurm_url: <username>@eagle.man.poznan.pl
      storage_dir: /home/plgrid/<username>
-     venv: /net/people/<username>/RL/py35
+     venv: /net/people/<username>/RL/py36
 
    prometheus_cpu_mpi:
      account: <grantname>
@@ -48,6 +48,6 @@
      mem: 25G
      slurm_url: <username>@pro.cyfronet.pl
      storage_dir: /net/archive/groups/plggluna/<username>
-     venv: /net/people/<username>/RL/py35
+     venv: /net/people/<username>/RL/py36
 
  current_context: prometheus_cpu

@@ -8,10 +8,11 @@ if [ "$#" -ne 2 ]; then
 fi
 
 
+PYTHON=python3.6
 PROJECT_DIR=$(pwd)
 SCRIPT_DIR=${PROJECT_DIR}/scripts
 SRC_DIR=${PROJECT_DIR}/src
-PIP_ENV=${PROJECT_DIR}/py35
+PIP_ENV=${PROJECT_DIR}/py36
 REQ_DIR=${PROJECT_DIR}/requirements
 RES_DIR=${PROJECT_DIR}/resources
 
@@ -32,7 +33,7 @@ fi
 # Prepare virtualenv
 
 if [ ! -d "$PIP_ENV" ]; then
-	virtualenv -p python3.5 "${PIP_ENV}"
+	virtualenv -p $PYTHON "${PIP_ENV}"
 fi
 
 source ${PIP_ENV}/bin/activate
@@ -40,7 +41,7 @@ echo "Installing requirements..."
 for f in "${REQ_DIR}"/*
 do
         # Add -q to make the installation quiet
-	python3.5 -m pip install -r "$f"
+	$PYTHON -m pip install -r "$f" -q
 done
 echo "Requirements installed."
 
