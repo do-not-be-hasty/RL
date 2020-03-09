@@ -1,0 +1,80 @@
+import mcts.mcts_test
+import mcts.mcts_rubik_env
+
+# Parameters for TestGoalRubikEnv:
+# ==============================================================================
+TestGoalRubikEnv.step_limit = 50
+TestGoalRubikEnv.shuffles = 50
+
+# Parameters for KerasNetwork:
+# ==============================================================================
+KerasNetwork.loss = ('mean_squared_error')
+KerasNetwork.metrics = ['mse']
+KerasNetwork.model_fn = @alpacka.networks.keras.mlp
+KerasNetwork.optimizer = 'adam'
+KerasNetwork.weight_decay = 0.0
+KerasNetwork.train_callbacks = None
+
+# Parameters for LocalBatchStepper:
+# ==============================================================================
+# None.
+
+# Parameters for DeterministicMCTSAgent:
+# ==============================================================================
+TestDeterministicMCTSAgent.avoid_loops = True
+TestDeterministicMCTSAgent.gamma = 0.98
+TestDeterministicMCTSAgent.n_passes = 50
+TestDeterministicMCTSAgent.value_traits_class = @alpacka.agents.deterministic_mcts.ScalarValueTraits
+TestDeterministicMCTSAgent.value_accumulator_class = @alpacka.agents.deterministic_mcts.ScalarValueAccumulator
+
+# Parameters for mlp:
+# ==============================================================================
+mlp.activation = 'relu'
+mlp.hidden_sizes = (1024, 1024)
+mlp.output_activation = (None)
+
+# Parameters for puct_exploration_bonus:
+# ==============================================================================
+# None.
+
+# Parameters for QualityNetworkNewLeafRater:
+# ==============================================================================
+QualityNetworkNewLeafRater.use_policy = True
+
+# Parameters for Runner:
+# ==============================================================================
+Runner.agent_class = @mcts_test.TestDeterministicMCTSAgent
+Runner.batch_stepper_class = @alpacka.batch_steppers.LocalBatchStepper
+Runner.env_class = @mcts_rubik_env.TestGoalRubikEnv
+Runner.n_envs = 1
+Runner.episode_time_limit = 100
+Runner.n_epochs = None
+Runner.n_precollect_epochs = 0
+Runner.network_class = @alpacka.networks.KerasNetwork
+Runner.trainer_class = @alpacka.trainers.SupervisedTrainer
+
+# Parameters for SupervisedTrainer:
+# ==============================================================================
+SupervisedTrainer.batch_size = 32
+SupervisedTrainer.n_steps_per_epoch = 13
+SupervisedTrainer.replay_buffer_capacity = 500000
+SupervisedTrainer.replay_buffer_sampling_hierarchy = ['solved']
+SupervisedTrainer.target = @alpacka.trainers.supervised.target_value
+
+
+# Parameters for target_qualities:
+# ==============================================================================
+# None.
+
+# Parameters for target_action_histogram:
+# ==============================================================================
+# None.
+
+# Parameters for ScalarValueAccumulator:
+# ==============================================================================
+# None.
+
+# Parameters for ScalarValueTraits:
+# ==============================================================================
+# None
+
