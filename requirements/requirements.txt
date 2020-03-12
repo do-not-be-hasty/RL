@@ -18,7 +18,7 @@ stable_baselines==2.4.0
 neptune-client==0.4.1
 git+https://github.com/deepsense-ai/mrunner.git@new_neptune
 munch==2.3.2
-psutil==5.5.1
+psutil==5.6.6
 cloudpickle==0.6.1
 gin-config==0.3.0
 
