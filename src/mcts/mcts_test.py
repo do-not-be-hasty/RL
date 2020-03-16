@@ -289,7 +289,12 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         # print("obss\n\n\n", obs)
         # print("obss\n\n\n")
 
-        value_batch = yield np.array(obs)
+        # print('value batch preparation')
+        value_batch = yield [np.array(obs), np.ones([12, 12])]
+        # print('value batch pre', value_batch)
+        value_batch = np.max(value_batch, axis=-1)
+
+        # print('value batch', value_batch)
 
         # print("expand_fin")
 
@@ -350,7 +355,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._state2node = {}
         state = self._model.clone_state()
         # print("reset 2")
-        (value,) = yield np.array([observation])
+        (value,) = yield [np.array([observation]), np.array([np.ones(12)])]
         # print("reset 4")
         # Initialize root.
         graph_node = self._initialize_graph_node(
@@ -380,33 +385,30 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
     def postprocess_transitions(transitions):
         # print("MCTS postp")
         # print(transitions)
-        postprocessed_transitions = []
-        for (i, transition) in enumerate(transitions):
-            node = transition.agent_info['node']
-            value = node.value_acc.target().item()
-            # liczba kroków do celu (value function)
-            # TODO should I modify this value?
-
-            offset = np.random.randint(i, len(transitions))
-            goal = transitions[offset].next_observation['achieved_goal']
-            # goal = transitions[offset].next_observation['desired_goal']
-            done = np.array_equal(transition.next_observation['achieved_goal'], goal)
-            reward = 0 if done else transition.reward
-            observation = np.concatenate([transition.observation['observation'], goal], axis=-1)
-            next_observation = np.concatenate([transition.next_observation['observation'], goal], axis=-1)
-
-            postprocessed_transitions.append(
-                transition._replace(observation=observation, reward=reward, done=done, next_observation=next_observation,
-                                    agent_info={'value': value}))
+        postprocessed_transitions = transitions
+        # for (i, transition) in enumerate(transitions):
+        #     node = transition.agent_info['node']
+        #     value = node.value_acc.target().item()
+        #
+        #     offset = np.random.randint(i, len(transitions))
+        #     goal = transitions[offset].next_observation['achieved_goal']
+        #     # goal = transitions[offset].next_observation['desired_goal']
+        #     done = np.array_equal(transition.next_observation['achieved_goal'], goal)
+        #     reward = 0 if done else transition.reward
+        #     observation = np.concatenate([transition.observation['observation'], goal], axis=-1)
+        #     next_observation = np.concatenate([transition.next_observation['observation'], goal], axis=-1)
+        #
+        #     postprocessed_transitions.append(
+        #         transition._replace(observation=observation, reward=reward, done=done, next_observation=next_observation,
+        #                             agent_info={'value': value}))
         return postprocessed_transitions
 
     @staticmethod
     def network_signature(observation_space, action_space):
         # print("MCTS sign")
-        del action_space
         return data.NetworkSignature(
             input=space_utils.signature(observation_space),
-            output=data.TensorSignature(shape=(1,)),
+            output=data.TensorSignature(shape=(action_space.n,)),
         )
 
 
