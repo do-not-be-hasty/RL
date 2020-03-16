@@ -74,7 +74,7 @@ class ReplayBuffer(object):
                 else:
                     rewards.append(-1)
                     if true_replay:
-                        dones.append(done)
+                        dones.append(0)
                     else:
                         dones.append(0)
                 obses_tp1.append(np.array(np.concatenate([obs_tp1['observation'], goal], axis=-1), copy=False))

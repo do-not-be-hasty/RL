@@ -118,6 +118,34 @@ def log_rubik_ultimate_eval(shuffles_list, model, env, neval=10):
         neptune_logger('ultimate {0} success rate'.format(shuffle), rubik_ultimate_eval(model, env, neval))
 
 
+def log_rubik_infty(model):
+    env = copy.deepcopy(model.env)
+
+    def single_infty(model, env):
+        env.randomize(100)
+        obs = env._get_state()
+        q_values = model.predict_q_values(
+            np.concatenate((obs, env.goal_obs), axis=-1)).flatten()
+        return np.mean(q_values)
+
+    return np.mean([single_infty(model, env) for _ in range(100)])
+
+
+def log_rubik_ultimate_infty(model):
+    env = copy.deepcopy(model.env)
+
+    def single_infty(model, env):
+        env.randomize(100)
+        goal = env._get_state()
+        env.randomize(100)
+        obs = env._get_state()
+        q_values = model.predict_q_values(
+            np.concatenate((obs, goal), axis=-1)).flatten()
+        return np.mean(q_values)
+
+    return np.mean([single_infty(model, env) for _ in range(100)])
+
+
 def callback(_locals, _globals):
     interval = 100 if _locals['log_interval'] is None else _locals['log_interval']
 
@@ -135,6 +163,7 @@ def callback(_locals, _globals):
         neptune_logger('loss', np.mean(_locals['episode_losses']))
         neptune_logger('loss_min', np.min(_locals['episode_losses']))
         neptune_logger('loss_max', np.max(_locals['episode_losses']))
+
         # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
@@ -142,6 +171,8 @@ def callback(_locals, _globals):
         log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'], _locals['self'].env)
         log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
         log_rubik_ultimate_eval([2, 4, 7], _locals['self'], _locals['self'].env)
+        neptune_logger('infty', log_rubik_infty(_locals['self']))
+        neptune_logger('ultimate infty', log_rubik_ultimate_infty(_locals['self']))
 
     return False
 

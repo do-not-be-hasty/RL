@@ -11,7 +11,8 @@ from stable_baselines import logger, deepq
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, TensorboardWriter
 from stable_baselines.common.vec_env import VecEnv
 from stable_baselines.common.schedules import LinearSchedule
-from episode_replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+from episode_replay_buffer import ReplayBuffer as EpisodeReplayBuffer
+from stable_baselines.deepq import ReplayBuffer as SimpleReplayBuffer, PrioritizedReplayBuffer as SimplePrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 from stable_baselines.a2c.utils import find_trainable_variables, total_episode_reward_logger
 
@@ -159,7 +160,7 @@ class DQN_HER(OffPolicyRLModel):
 
             # Create the replay buffer
             if self.prioritized_replay:
-                self.replay_buffer = PrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
+                self.replay_buffer = SimplePrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
                 if self.prioritized_replay_beta_iters is None:
                     prioritized_replay_beta_iters = total_timesteps
                     self.beta_schedule = LinearSchedule(prioritized_replay_beta_iters,
@@ -167,7 +168,8 @@ class DQN_HER(OffPolicyRLModel):
                                                         final_p=1.0)
             else:
                 # self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
-                self.replay_buffer = ReplayBuffer(self.buffer_size, hindsight=self.hindsight)
+                self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight)
+                # self.replay_buffer = SimpleReplayBuffer(self.buffer_size)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.
             self.exploration = LinearSchedule(schedule_timesteps=int(self.exploration_fraction * total_timesteps),
@@ -276,7 +278,27 @@ class DQN_HER(OffPolicyRLModel):
                         # print(full_obs)
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
-                    self.replay_buffer.add(episode_replays)
+                    def postprocess_replays(raw_replays, buffer):
+                        buffer.add(raw_replays)
+                        return
+
+                        for _ in range(10):
+                            for id, (full_obs, action, rew, new_obs, done) in enumerate(raw_replays):
+                                offset = np.random.randint(id, len(raw_replays))
+                                target = raw_replays[offset][3]['achieved_goal']
+                                obs = np.concatenate([full_obs['observation'], target], axis=-1)
+                                step = np.concatenate([new_obs['observation'], target], axis=-1)
+                                if np.array_equal(new_obs['achieved_goal'], target):
+                                    rew = 0.
+                                    done = 1.
+                                else:
+                                    rew = -1.
+                                    done = 0.
+
+                                buffer.add(obs, action, rew, step, done)
+
+                    postprocess_replays(episode_replays, self.replay_buffer)
+
                     begin_obs.append(full_obs)
                     begin_obs = begin_obs[1:]
 
