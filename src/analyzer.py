@@ -21,7 +21,7 @@ env = make_env_GoalRubik(step_limit=15)
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/R7_hind1_checkpoint_2019-11-11-20:04:16_60000.pkl", env) # RUB-17
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/R7_hind1_checkpoint_2019-11-12-00:48:03_80000.pkl", env) # RUB-17
 
-model = HER.load("/home/michal/Projekty/RL/RL/resources/fakeonly_2019-11-13-12:01:24_40000.pkl", env) # RUB-21
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/fakeonly_2019-11-13-12:01:24_40000.pkl", env) # RUB-21
 
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:41:05_1000.pkl", env) # 0.002
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_normal_2019-12-02-13:41:38_2000.pkl", env) # 0.002
@@ -44,6 +44,9 @@ model = HER.load("/home/michal/Projekty/RL/RL/resources/fakeonly_2019-11-13-12:0
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:53:14_8000.pkl", env)  # 0.541
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:53:37_9000.pkl", env)
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:53:57_10000.pkl", env)
+
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/colour_emb__2020-02-09-09:47:20_100000.pkl", env) # RUB-134
+model = HER.load("/home/michal/Projekty/RL/RL/resources/colour_emb_longer_ep__2020-02-21-15:20:27_30000.pkl", env) # RUB-156
 
 def simple_eval_Rubik(env):
     for i in range(1, 10):

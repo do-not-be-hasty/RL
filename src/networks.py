@@ -2,6 +2,9 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.layers as tf_layers
 
+import tensorflow.compat.v1.keras.initializers
+from tensorflow.compat.v1.keras.initializers import he_normal
+
 from stable_baselines.deepq.policies import DQNPolicy
 
 from utility import model_summary
@@ -10,7 +13,7 @@ from utility import model_summary
 class CustomPolicy(DQNPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, arch_fun, reuse=False,
                  feature_extraction="mlp",
-                 obs_phs=None, dueling=True, act_fun=tf.nn.relu, **kwargs):
+                 obs_phs=None, dueling=True, act_fun=tf.nn.leaky_relu, **kwargs):
         super(CustomPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps,
                                            n_batch, dueling=dueling, reuse=reuse,
                                            scale=(feature_extraction == "cnn"), obs_phs=obs_phs)
@@ -256,8 +259,7 @@ def arch_color_embedding(processed_obs, act_fun, n_actions, dueling):
                     range(6)]
         features = [act_fun(feature) for feature in features]
         features = [tf_layers.fully_connected(features[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_2') for i in range(6)]
-        # features = [act_fun(feature) for feature in features]
-        # features = [tf_layers.fully_connected(features[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_3') for i in range(6)]
+        # features = [tf_layers.layer_norm(feature) for feature in features]
 
         action_out = features[0] + features[1] + features[2] + features[3] + features[4] + features[5]
 

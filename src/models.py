@@ -43,9 +43,10 @@ def HER_model(env):
         verbose=1,
         loop_breaking=True,
         multistep=1,
+        prioritized_replay=False,
         # batch_size=128,
-        # model_save_episode_freq=100*200,
-        # model_save_path="/net/people/plgmizaw/checkpoints/colour_emb_",
+        # model_save_episode_freq=200*100,
+        # model_save_path="/net/people/plgmizaw/checkpoints/colour_emb_5longer_ep_",
         # param_noise=True,
     )
 

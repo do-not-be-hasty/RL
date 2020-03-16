@@ -11,11 +11,179 @@ from stable_baselines import logger, deepq
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, TensorboardWriter
 from stable_baselines.common.vec_env import VecEnv
 from stable_baselines.common.schedules import LinearSchedule
-from episode_replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+from episode_replay_buffer import ReplayBuffer as EpisodeReplayBuffer
+from stable_baselines.deepq import ReplayBuffer as SimpleReplayBuffer, PrioritizedReplayBuffer as SimplePrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 from stable_baselines.a2c.utils import find_trainable_variables, total_episode_reward_logger
 
 from utility import get_cur_time_str, timeit, MazeEnv_printable_obs
+
+
+class InternalNetwork:
+    def __init__(self, verbose, action_space, policy, learning_rate, observation_space, gamma, param_noise, loop_breaking, prioritized_replay,
+                 learning_starts, train_freq, batch_size, prioritized_replay_eps, target_network_update_freq):
+        self.verbose = verbose
+        self.action_space = action_space
+        self.policy = policy
+        self.learning_rate = learning_rate
+        self.observation_space = observation_space
+        self.gamma = gamma
+        self.param_noise = param_noise
+        self.loop_breaking = loop_breaking
+        self.prioritized_replay = prioritized_replay
+        self.learning_starts = learning_starts
+        self.train_freq = train_freq
+        self.batch_size = batch_size
+        self.prioritized_replay_eps = prioritized_replay_eps
+        self.target_network_update_freq = target_network_update_freq
+
+        self.beta_schedule = None
+
+        self.sess = None
+        self.graph = None
+        self.act = None
+        self._train_step = None
+        self.update_target = None
+        self.step_model = None
+        self.summary = None
+        self.proba_step = None
+        self.params = None
+
+    def setup_model(self):
+        with SetVerbosity(self.verbose):
+            assert not isinstance(self.action_space, gym.spaces.Box), \
+                "Error: DQN cannot output a gym.spaces.Box action space."
+
+            # If the policy is wrap in functool.partial (e.g. to disable dueling)
+            # unwrap it to check the class type
+            if isinstance(self.policy, partial):
+                test_policy = self.policy.func
+            else:
+                test_policy = self.policy
+            assert issubclass(test_policy, DQNPolicy), "Error: the input policy for the DQN model must be " \
+                                                       "an instance of DQNPolicy."
+
+            self.graph = tf.Graph()
+            with self.graph.as_default():
+                self.sess = tf_util.make_session(graph=self.graph)
+
+                optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+                # optimizer = tf.contrib.opt.NadamOptimizer(learning_rate=self.learning_rate)
+                # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-3, momentum=0.9, use_nesterov=True)
+
+                self.act, self._train_step, self.update_target, self.step_model = deepq.build_train(
+                    q_func=self.policy,
+                    ob_space=self.observation_space,
+                    ac_space=self.action_space,
+                    optimizer=optimizer,
+                    gamma=self.gamma,
+                    grad_norm_clipping=10,
+                    param_noise=self.param_noise,
+                    sess=self.sess
+                )
+                self.proba_step = self.step_model.proba_step
+                self.params = find_trainable_variables("deepq")
+
+                # Initialize the parameters and copy them to the target network.
+                tf_util.initialize(self.sess)
+                self.update_target(sess=self.sess)
+
+                self.summary = tf.summary.merge_all()
+
+    def make_action(self, is_in_loop, update_eps, part_obs, kwargs):
+        with self.sess.as_default():
+            # Loop breaking
+            if self.loop_breaking and is_in_loop:
+                # update_eps_value = (update_eps + 1.) / 2.
+                update_eps_value = 1.
+            else:
+                update_eps_value = update_eps
+            # if self.boltzmann:
+            #     values = self.predict_q_values(np.array(part_obs))[0]
+            #     exp = 1. / update_eps_value
+            #     action = np.random.choice(np.arange(0, values.shape[0]), p=(exp ** values) / sum(exp ** values))
+            # else:
+            #     action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
+            action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
+
+        return action
+
+    def predict(self, observation, state=None, mask=None, deterministic=True):
+        observation = np.array(observation)
+        # vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
+        vectorized_env = False
+
+        observation = observation.reshape((-1,) + self.observation_space.shape)
+        with self.sess.as_default():
+            actions, _, _ = self.step_model.step(observation, deterministic=deterministic)
+
+        if not vectorized_env:
+            actions = actions[0]
+
+        return actions, None
+
+    def predict_q_values(self, observation, state=None, mask=None, deterministic=True):
+        observation = np.array(observation)
+        observation = observation.reshape((-1,) + self.observation_space.shape)
+
+        with self.sess.as_default():
+            _, q_values, _ = self.step_model.step(observation, deterministic=deterministic)
+
+        return q_values
+
+    def action_probability(self, observation, state=None, mask=None):
+        observation = np.array(observation)
+        # vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
+        vectorized_env = False
+
+        observation = observation.reshape((-1,) + self.observation_space.shape)
+        actions_proba = self.proba_step(observation, state, mask)
+
+        if not vectorized_env:
+            if state is not None:
+                raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
+            actions_proba = actions_proba[0]
+
+        return actions_proba
+
+    def learning_step(self, step, replay_buffer, writer, episode_losses):
+        if step > self.learning_starts and step % self.train_freq == 0:
+            # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
+            if self.prioritized_replay:
+                experience = replay_buffer.sample(self.batch_size, beta=self.beta_schedule.value(step))
+                (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
+            else:
+                obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(self.batch_size)
+                weights, batch_idxes = np.ones_like(rewards), None
+
+            if writer is not None:
+                # run loss backprop with summary, but once every 100 steps save the metadata
+                # (memory, compute time, ...)
+                if (1 + step) % 100 == 0:
+                    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                    run_metadata = tf.RunMetadata()
+                    summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                          dones, weights, sess=self.sess, options=run_options,
+                                                          run_metadata=run_metadata)
+                    writer.add_run_metadata(run_metadata, 'step%d' % step)
+                else:
+                    summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                          dones, weights, sess=self.sess)
+                writer.add_summary(summary, step)
+            else:
+                _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
+                                                sess=self.sess)
+
+            loss = np.mean(np.dot(weights, [huber(1., error) for error in td_errors]))
+            episode_losses.append(loss)
+
+            if self.prioritized_replay:
+                new_priorities = np.abs(td_errors) + self.prioritized_replay_eps
+                replay_buffer.update_priorities(batch_idxes, new_priorities)
+
+        if step > self.learning_starts and step % self.target_network_update_freq == 0:
+            # Update target network periodically.
+            self.update_target(sess=self.sess)
 
 
 class DQN_HER(OffPolicyRLModel):
@@ -88,65 +256,22 @@ class DQN_HER(OffPolicyRLModel):
         self.multistep = multistep
         self.boltzmann = boltzmann
 
-        self.graph = None
-        self.sess = None
-        self._train_step = None
-        self.step_model = None
-        self.update_target = None
-        self.act = None
-        self.proba_step = None
         self.replay_buffer = None
         self.beta_schedule = None
         self.exploration = None
-        self.params = None
-        self.summary = None
         self.episode_reward = None
         self.steps_made = 0
         self.episodes_completed = 0
 
+        self.network = InternalNetwork(self.verbose, self.action_space, self.policy, self.learning_rate, self.observation_space, self.gamma,
+                                       self.param_noise, self.loop_breaking, prioritized_replay,
+                                       learning_starts, train_freq, batch_size, prioritized_replay_eps, target_network_update_freq)
+
         if _init_setup_model:
-            self.setup_model()
+            self.network.setup_model()
 
     def setup_model(self):
-        with SetVerbosity(self.verbose):
-            assert not isinstance(self.action_space, gym.spaces.Box), \
-                "Error: DQN cannot output a gym.spaces.Box action space."
-
-            # If the policy is wrap in functool.partial (e.g. to disable dueling)
-            # unwrap it to check the class type
-            if isinstance(self.policy, partial):
-                test_policy = self.policy.func
-            else:
-                test_policy = self.policy
-            assert issubclass(test_policy, DQNPolicy), "Error: the input policy for the DQN model must be " \
-                                                       "an instance of DQNPolicy."
-
-            self.graph = tf.Graph()
-            with self.graph.as_default():
-                self.sess = tf_util.make_session(graph=self.graph)
-
-                optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-                # optimizer = tf.contrib.opt.NadamOptimizer(learning_rate=self.learning_rate)
-                # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-3, momentum=0.9, use_nesterov=True)
-
-                self.act, self._train_step, self.update_target, self.step_model = deepq.build_train(
-                    q_func=self.policy,
-                    ob_space=self.observation_space,
-                    ac_space=self.action_space,
-                    optimizer=optimizer,
-                    gamma=self.gamma,
-                    grad_norm_clipping=10,
-                    param_noise=self.param_noise,
-                    sess=self.sess
-                )
-                self.proba_step = self.step_model.proba_step
-                self.params = find_trainable_variables("deepq")
-
-                # Initialize the parameters and copy them to the target network.
-                tf_util.initialize(self.sess)
-                self.update_target(sess=self.sess)
-
-                self.summary = tf.summary.merge_all()
+        self.network.setup_model()
 
     def save_model_checkpoint(self):
         save_path = self.model_save_path + "_" + get_cur_time_str() + "_" + str(self.episodes_completed)
@@ -154,12 +279,14 @@ class DQN_HER(OffPolicyRLModel):
         self.save(save_path)
 
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="DQN"):
-        with SetVerbosity(self.verbose), TensorboardWriter(self.graph, self.tensorboard_log, tb_log_name) as writer:
+        # with SetVerbosity(self.verbose), TensorboardWriter(self.graph, self.tensorboard_log, tb_log_name) as writer:
+        with SetVerbosity(self.verbose):
+            writer = None
             self._setup_learn(seed)
 
             # Create the replay buffer
             if self.prioritized_replay:
-                self.replay_buffer = PrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
+                self.replay_buffer = SimplePrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
                 if self.prioritized_replay_beta_iters is None:
                     prioritized_replay_beta_iters = total_timesteps
                     self.beta_schedule = LinearSchedule(prioritized_replay_beta_iters,
@@ -167,7 +294,8 @@ class DQN_HER(OffPolicyRLModel):
                                                         final_p=1.0)
             else:
                 # self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
-                self.replay_buffer = ReplayBuffer(self.buffer_size, hindsight=self.hindsight)
+                self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight)
+                # self.replay_buffer = SimpleReplayBuffer(self.buffer_size)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.
             self.exploration = LinearSchedule(schedule_timesteps=int(self.exploration_fraction * total_timesteps),
@@ -218,19 +346,9 @@ class DQN_HER(OffPolicyRLModel):
                     kwargs['reset'] = reset
                     kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                     kwargs['update_param_noise_scale'] = True
-                with self.sess.as_default():
-                    # Loop breaking
-                    if self.loop_breaking and is_in_loop:
-                        # update_eps_value = (update_eps + 1.) / 2.
-                        update_eps_value = 1.
-                    else:
-                        update_eps_value = update_eps
-                    if self.boltzmann:
-                        values = self.predict_q_values(np.array(part_obs))[0]
-                        exp = 1. / update_eps_value
-                        action = np.random.choice(np.arange(0, values.shape[0]), p=(exp ** values) / sum(exp ** values))
-                    else:
-                        action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
+
+                action = self.network.make_action(is_in_loop, update_eps, part_obs, kwargs)
+
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)
@@ -276,7 +394,27 @@ class DQN_HER(OffPolicyRLModel):
                         # print(full_obs)
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
-                    self.replay_buffer.add(episode_replays)
+                    def postprocess_replays(raw_replays, buffer):
+                        buffer.add(raw_replays)
+                        return
+
+                        for _ in range(10):
+                            for id, (full_obs, action, rew, new_obs, done) in enumerate(raw_replays):
+                                offset = np.random.randint(id, len(raw_replays))
+                                target = raw_replays[offset][3]['achieved_goal']
+                                obs = np.concatenate([full_obs['observation'], target], axis=-1)
+                                step = np.concatenate([new_obs['observation'], target], axis=-1)
+                                if np.array_equal(new_obs['achieved_goal'], target):
+                                    rew = 0.
+                                    done = 1.
+                                else:
+                                    rew = -1.
+                                    done = 0.
+
+                                buffer.add(obs, action, rew, step, done)
+
+                    postprocess_replays(episode_replays, self.replay_buffer)
+
                     begin_obs.append(full_obs)
                     begin_obs = begin_obs[1:]
 
@@ -291,43 +429,8 @@ class DQN_HER(OffPolicyRLModel):
                     reset = True
                     is_in_loop = False
 
-                if step > self.learning_starts and step % self.train_freq == 0:
-                    # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-                    if self.prioritized_replay:
-                        experience = self.replay_buffer.sample(self.batch_size, beta=self.beta_schedule.value(step))
-                        (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
-                    else:
-                        obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer.sample(self.batch_size)
-                        weights, batch_idxes = np.ones_like(rewards), None
-
-                    if writer is not None:
-                        # run loss backprop with summary, but once every 100 steps save the metadata
-                        # (memory, compute time, ...)
-                        if (1 + step) % 100 == 0:
-                            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-                            run_metadata = tf.RunMetadata()
-                            summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
-                                                                  dones, weights, sess=self.sess, options=run_options,
-                                                                  run_metadata=run_metadata)
-                            writer.add_run_metadata(run_metadata, 'step%d' % step)
-                        else:
-                            summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
-                                                                  dones, weights, sess=self.sess)
-                        writer.add_summary(summary, step)
-                    else:
-                        _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
-                                                        sess=self.sess)
-
-                    loss = np.mean(np.dot(weights, [huber(1., error) for error in td_errors]))
-                    episode_losses.append(loss)
-
-                    if self.prioritized_replay:
-                        new_priorities = np.abs(td_errors) + self.prioritized_replay_eps
-                        self.replay_buffer.update_priorities(batch_idxes, new_priorities)
-
-                if step > self.learning_starts and step % self.target_network_update_freq == 0:
-                    # Update target network periodically.
-                    self.update_target(sess=self.sess)
+                #training is done here:
+                self.network.learning_step(step, self.replay_buffer, writer, episode_losses)
 
                 if len(episode_rewards[-(log_interval + 1):-1]) == 0:
                     mean_100ep_reward = -np.inf
@@ -346,40 +449,13 @@ class DQN_HER(OffPolicyRLModel):
         return self
 
     def predict(self, observation, state=None, mask=None, deterministic=True):
-        observation = np.array(observation)
-        vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
-
-        observation = observation.reshape((-1,) + self.observation_space.shape)
-        with self.sess.as_default():
-            actions, _, _ = self.step_model.step(observation, deterministic=deterministic)
-
-        if not vectorized_env:
-            actions = actions[0]
-
-        return actions, None
+        return self.network.predict(observation, state, mask, deterministic)
 
     def predict_q_values(self, observation, state=None, mask=None, deterministic=True):
-        observation = np.array(observation)
-        observation = observation.reshape((-1,) + self.observation_space.shape)
-
-        with self.sess.as_default():
-            _, q_values, _ = self.step_model.step(observation, deterministic=deterministic)
-
-        return q_values
+        return self.network.predict_q_values(observation, state, mask, deterministic)
 
     def action_probability(self, observation, state=None, mask=None):
-        observation = np.array(observation)
-        vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
-
-        observation = observation.reshape((-1,) + self.observation_space.shape)
-        actions_proba = self.proba_step(observation, state, mask)
-
-        if not vectorized_env:
-            if state is not None:
-                raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
-            actions_proba = actions_proba[0]
-
-        return actions_proba
+        return self.network.action_probability(observation, state, mask)
 
     def save(self, save_path):
         # params
