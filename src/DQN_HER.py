@@ -55,7 +55,7 @@ class DQN_HER(OffPolicyRLModel):
                  exploration_fraction=0.1,
                  exploration_final_eps=0.02, train_freq=1, batch_size=32, checkpoint_freq=10000, checkpoint_path=None,
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
-                 prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
+                 prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None, beta_fraction=1.0,
                  prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True, multistep=6, boltzmann=False):
 
@@ -76,6 +76,7 @@ class DQN_HER(OffPolicyRLModel):
         self.prioritized_replay_alpha = prioritized_replay_alpha
         self.prioritized_replay_beta0 = prioritized_replay_beta0
         self.prioritized_replay_beta_iters = prioritized_replay_beta_iters
+        self.beta_fraction = beta_fraction
         self.exploration_final_eps = exploration_final_eps
         self.exploration_fraction = exploration_fraction
         self.buffer_size = buffer_size
@@ -162,7 +163,7 @@ class DQN_HER(OffPolicyRLModel):
             if self.prioritized_replay:
                 self.replay_buffer = SimplePrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
                 if self.prioritized_replay_beta_iters is None:
-                    prioritized_replay_beta_iters = total_timesteps
+                    prioritized_replay_beta_iters = total_timesteps * self.beta_fraction
                     self.beta_schedule = LinearSchedule(prioritized_replay_beta_iters,
                                                         initial_p=self.prioritized_replay_beta0,
                                                         final_p=1.0)
@@ -278,9 +279,10 @@ class DQN_HER(OffPolicyRLModel):
                         # print(full_obs)
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
-                    def postprocess_replays(raw_replays, buffer):
-                        buffer.add(raw_replays)
-                        return
+                    def postprocess_replays(raw_replays, buffer, prioritized_replay):
+                        if not prioritized_replay:
+                            buffer.add(raw_replays)
+                            return
 
                         for _ in range(10):
                             for id, (full_obs, action, rew, new_obs, done) in enumerate(raw_replays):
@@ -297,7 +299,7 @@ class DQN_HER(OffPolicyRLModel):
 
                                 buffer.add(obs, action, rew, step, done)
 
-                    postprocess_replays(episode_replays, self.replay_buffer)
+                    postprocess_replays(episode_replays, self.replay_buffer, self.prioritized_replay)
 
                     begin_obs.append(full_obs)
                     begin_obs = begin_obs[1:]
