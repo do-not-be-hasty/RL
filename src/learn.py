@@ -7,14 +7,14 @@ from models import HER_model, MTR_model, DQN_model, HER_model_conv
 
 
 def learn_BitFlipper_HER():
-    n = 150
+    n = 10
     print("BitFlipper({0}), DQN+HER".format(n))
 
     env = make_env_GoalBitFlipper(n=n, space_seed=15)
     model = HER_model(env)
 
     try:
-        model.learn(total_timesteps=100000 * 16 * n,
+        model.learn(total_timesteps=100000 * 5 * n,
                     callback=callback,
                     )
     except KeyboardInterrupt:

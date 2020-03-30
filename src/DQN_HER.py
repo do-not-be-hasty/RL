@@ -50,45 +50,44 @@ class InternalNetwork:
         self.params = None
 
     def setup_model(self):
-        with SetVerbosity(self.verbose):
-            assert not isinstance(self.action_space, gym.spaces.Box), \
-                "Error: DQN cannot output a gym.spaces.Box action space."
+        assert not isinstance(self.action_space, gym.spaces.Box), \
+            "Error: DQN cannot output a gym.spaces.Box action space."
 
-            # If the policy is wrap in functool.partial (e.g. to disable dueling)
-            # unwrap it to check the class type
-            if isinstance(self.policy, partial):
-                test_policy = self.policy.func
-            else:
-                test_policy = self.policy
-            assert issubclass(test_policy, DQNPolicy), "Error: the input policy for the DQN model must be " \
-                                                       "an instance of DQNPolicy."
+        # If the policy is wrap in functool.partial (e.g. to disable dueling)
+        # unwrap it to check the class type
+        if isinstance(self.policy, partial):
+            test_policy = self.policy.func
+        else:
+            test_policy = self.policy
+        assert issubclass(test_policy, DQNPolicy), "Error: the input policy for the DQN model must be " \
+                                                   "an instance of DQNPolicy."
 
-            self.graph = tf.Graph()
-            with self.graph.as_default():
-                self.sess = tf_util.make_session(graph=self.graph)
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            self.sess = tf_util.make_session(graph=self.graph)
 
-                optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-                # optimizer = tf.contrib.opt.NadamOptimizer(learning_rate=self.learning_rate)
-                # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-3, momentum=0.9, use_nesterov=True)
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+            # optimizer = tf.contrib.opt.NadamOptimizer(learning_rate=self.learning_rate)
+            # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-3, momentum=0.9, use_nesterov=True)
 
-                self.act, self._train_step, self.update_target, self.step_model = deepq.build_train(
-                    q_func=self.policy,
-                    ob_space=self.observation_space,
-                    ac_space=self.action_space,
-                    optimizer=optimizer,
-                    gamma=self.gamma,
-                    grad_norm_clipping=10,
-                    param_noise=self.param_noise,
-                    sess=self.sess
-                )
-                self.proba_step = self.step_model.proba_step
-                self.params = find_trainable_variables("deepq")
+            self.act, self._train_step, self.update_target, self.step_model = deepq.build_train(
+                q_func=self.policy,
+                ob_space=self.observation_space,
+                ac_space=self.action_space,
+                optimizer=optimizer,
+                gamma=self.gamma,
+                grad_norm_clipping=10,
+                param_noise=self.param_noise,
+                sess=self.sess
+            )
+            self.proba_step = self.step_model.proba_step
+            self.params = find_trainable_variables("deepq")
 
-                # Initialize the parameters and copy them to the target network.
-                tf_util.initialize(self.sess)
-                self.update_target(sess=self.sess)
+            # Initialize the parameters and copy them to the target network.
+            tf_util.initialize(self.sess)
+            self.update_target(sess=self.sess)
 
-                self.summary = tf.summary.merge_all()
+            self.summary = tf.summary.merge_all()
 
     def make_action(self, is_in_loop, update_eps, part_obs, kwargs):
         with self.sess.as_default():
@@ -222,7 +221,7 @@ class DQN_HER(OffPolicyRLModel):
                  exploration_fraction=0.1,
                  exploration_final_eps=0.02, train_freq=1, batch_size=32, checkpoint_freq=10000, checkpoint_path=None,
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
-                 prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
+                 prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None, beta_fraction=1.0,
                  prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True, multistep=6, boltzmann=False):
 
@@ -243,6 +242,7 @@ class DQN_HER(OffPolicyRLModel):
         self.prioritized_replay_alpha = prioritized_replay_alpha
         self.prioritized_replay_beta0 = prioritized_replay_beta0
         self.prioritized_replay_beta_iters = prioritized_replay_beta_iters
+        self.beta_fraction = beta_fraction
         self.exploration_final_eps = exploration_final_eps
         self.exploration_fraction = exploration_fraction
         self.buffer_size = buffer_size
@@ -289,7 +289,7 @@ class DQN_HER(OffPolicyRLModel):
                 self.replay_buffer = SimplePrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
                 if self.prioritized_replay_beta_iters is None:
                     prioritized_replay_beta_iters = total_timesteps
-                    self.beta_schedule = LinearSchedule(prioritized_replay_beta_iters,
+                    self.beta_schedule = LinearSchedule(prioritized_replay_beta_iters * self.beta_fraction,
                                                         initial_p=self.prioritized_replay_beta0,
                                                         final_p=1.0)
             else:
@@ -394,9 +394,10 @@ class DQN_HER(OffPolicyRLModel):
                         # print(full_obs)
                         part_obs = np.concatenate((full_obs['observation'], full_obs['desired_goal']), axis=-1)
 
-                    def postprocess_replays(raw_replays, buffer):
-                        buffer.add(raw_replays)
-                        return
+                    def postprocess_replays(raw_replays, buffer, prioritized_replay):
+                        if not prioritized_replay:
+                            buffer.add(raw_replays)
+                            return
 
                         for _ in range(10):
                             for id, (full_obs, action, rew, new_obs, done) in enumerate(raw_replays):
@@ -413,7 +414,7 @@ class DQN_HER(OffPolicyRLModel):
 
                                 buffer.add(obs, action, rew, step, done)
 
-                    postprocess_replays(episode_replays, self.replay_buffer)
+                    postprocess_replays(episode_replays, self.replay_buffer, self.prioritized_replay)
 
                     begin_obs.append(full_obs)
                     begin_obs = begin_obs[1:]

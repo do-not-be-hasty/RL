@@ -3,11 +3,11 @@ import mcts.mcts_rubik_env
 
 # Parameters for TestRubikEnv:
 # ==============================================================================
-TestGoalRubikEnv.step_limit = 30
-TestGoalRubikEnv.shuffles = 5
+TestGoalRubikEnv.step_limit = 40
+TestGoalRubikEnv.shuffles = 50
 
-TestSimpleRubikEnv.step_limit = 30
-TestSimpleRubikEnv.shuffles = 5
+# TestSimpleRubikEnv.step_limit = 30
+# TestSimpleRubikEnv.shuffles = 5
 
 # Parameters for KerasNetwork:
 # ==============================================================================
@@ -18,6 +18,25 @@ KerasNetwork.optimizer = 'adam'
 KerasNetwork.weight_decay = 0.0
 KerasNetwork.train_callbacks = None
 
+
+# Parameters for DqnInternalNetwork:
+# ==============================================================================
+DqnInternalNetwork.verbose = 0
+DqnInternalNetwork.policy = @mcts_test.DqnRubikPolicy
+DqnInternalNetwork.learning_rate = 5e-4
+DqnInternalNetwork.gamma = 0.98
+DqnInternalNetwork.param_noise = False
+DqnInternalNetwork.loop_breaking = True
+DqnInternalNetwork.prioritized_replay = False
+DqnInternalNetwork.learning_starts = 1000
+DqnInternalNetwork.train_freq = 1
+DqnInternalNetwork.batch_size = 32
+DqnInternalNetwork.prioritized_replay_eps = 1e-6
+DqnInternalNetwork.target_network_update_freq = 500
+DqnInternalNetwork.env_class = @mcts_rubik_env.TestGoalRubikEnv
+#DqnInternalNetwork.env_class = @mcts_rubik_env.TestGoalBitFlipper
+
+
 # Parameters for LocalBatchStepper:
 # ==============================================================================
 # None.
@@ -26,7 +45,7 @@ KerasNetwork.train_callbacks = None
 # ==============================================================================
 TestDeterministicMCTSAgent.avoid_loops = True
 TestDeterministicMCTSAgent.gamma = 0.98
-TestDeterministicMCTSAgent.n_passes = 50
+TestDeterministicMCTSAgent.n_passes = 10
 TestDeterministicMCTSAgent.value_traits_class = @alpacka.agents.deterministic_mcts.ScalarValueTraits
 TestDeterministicMCTSAgent.value_accumulator_class = @alpacka.agents.deterministic_mcts.ScalarValueAccumulator
 
@@ -53,17 +72,17 @@ Runner.batch_stepper_class = @alpacka.batch_steppers.LocalBatchStepper
 Runner.env_class = @mcts_rubik_env.TestGoalRubikEnv
 #Runner.env_class = @mcts_rubik_env.TestSimpleRubikEnv
 
-Runner.n_envs = 2
+Runner.n_envs = 1
 Runner.episode_time_limit = 100
 Runner.n_epochs = None
 Runner.n_precollect_epochs = 0
-Runner.network_class = @alpacka.networks.KerasNetwork
+Runner.network_class = @mcts_test.DqnInternalNetwork
 Runner.trainer_class = @alpacka.trainers.DqnTrainer
 
 # Parameters for Trainer:
 # ==============================================================================
 DqnTrainer.batch_size = 32
-DqnTrainer.n_steps_per_epoch = 13
+DqnTrainer.n_steps_per_epoch = 60
 DqnTrainer.replay_buffer_capacity = 500000
 
 

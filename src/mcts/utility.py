@@ -58,7 +58,7 @@ def clear_eval(model, env, neval=100, loop_break=False):
             if loop_break and tuple(obs['observation'].flatten()) in visited:
                 action = env.action_space.sample()
             else:
-                action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
+                action = model.predict_action(np.concatenate([obs['observation'], obs['desired_goal']], axis=-1))[0]
                 visited.add(tuple(obs['observation'].flatten()))
 
             obs, rewards, dones, info = env.step(action)
@@ -86,7 +86,7 @@ def rubik_ultimate_eval(model, env, neval=100):
         obs = env._get_goal_observation(env._get_state())
 
         while True:
-            action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
+            action = model.predict_action(np.concatenate([obs['observation'], obs['desired_goal']], axis=-1))[0]
             obs, rewards, dones, info = env.step(action)
 
             if rewards >= -1e-5:
@@ -99,23 +99,22 @@ def rubik_ultimate_eval(model, env, neval=100):
     return np.mean(vals)
 
 
-def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10, loop_break=False):
+def log_rubik_curriculum_eval(shuffles_list, model, env, info, neval=10, loop_break=False):
     env = copy.deepcopy(env)
 
     for shuffle in shuffles_list:
         env.scrambleSize = shuffle
         env.step_limit = 2 * (shuffle + 2)
-        neptune_logger('{0}shuffles {1} success rate'.format('[loop break] ' if loop_break else '', shuffle),
-                       clear_eval(model, env, neval, loop_break))
+        info['{0}shuffles {1} success rate'.format('[loop break] ' if loop_break else '', shuffle)] = clear_eval(model, env, neval, loop_break)
 
 
-def log_rubik_ultimate_eval(shuffles_list, model, env, neval=10):
+def log_rubik_ultimate_eval(shuffles_list, model, env, info, neval=10):
     env = copy.deepcopy(env)
 
     for shuffle in shuffles_list:
         env.scrambleSize = shuffle
         env.step_limit = 2 * (shuffle + 2)
-        neptune_logger('ultimate {0} success rate'.format(shuffle), rubik_ultimate_eval(model, env, neval))
+        info['ultimate {0} success rate'.format(shuffle)] = rubik_ultimate_eval(model, env, neval)
 
 
 def log_rubik_infty(model):
@@ -146,35 +145,19 @@ def log_rubik_ultimate_infty(model):
     return np.mean([single_infty(model, env) for _ in range(100)])
 
 
-def callback(_locals, _globals):
-    interval = 100 if _locals['log_interval'] is None else _locals['log_interval']
+def evaluation_infos(network, step):
+    if not step % 100 == 0:
+        return {}
 
-    if len(_locals['episode_rewards']) % interval == 0:
-        neptune_logger('success rate', np.mean(_locals['episode_success']))
-        neptune_logger('no exploration success rate',
-                       clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=25))
-        neptune_logger('exploration', _locals['update_eps'])
-        ep_div = np.array(_locals['episode_div'])
-        ep_succ = np.array(_locals['episode_success'])
-        neptune_logger('success move diversity',
-                       np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
-        neptune_logger('failure move diversity',
-                       np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
-        neptune_logger('loss', np.mean(_locals['episode_losses']))
-        neptune_logger('loss_min', 0 if len(_locals['episode_losses']) == 0 else np.min(_locals['episode_losses']))
-        neptune_logger('loss_max', 0 if len(_locals['episode_losses']) == 0 else np.max(_locals['episode_losses']))
+    info = dict()
 
-        # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
-        # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
-        # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
+    log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24], network, network.env, info)
+    # log_rubik_curriculum_eval([7], network, network.env, loop_break=True, info=info)
+    log_rubik_ultimate_eval([2, 4, 7], network, network.env, info)
+    info['infty'] = log_rubik_infty(network)
+    info['ultimate infty'] = log_rubik_ultimate_infty(network)
 
-        log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'], _locals['self'].env)
-        log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
-        log_rubik_ultimate_eval([2, 4, 7], _locals['self'], _locals['self'].env)
-        neptune_logger('infty', log_rubik_infty(_locals['self']))
-        neptune_logger('ultimate infty', log_rubik_ultimate_infty(_locals['self']))
-
-    return False
+    return info
 
 
 def evaluate(model, env, steps=1000, verbose=True):

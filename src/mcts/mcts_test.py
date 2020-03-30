@@ -1,14 +1,29 @@
 """Monte Carlo Tree Search for deterministic environments."""
 
 # TODO(koz4k): Clean up more, add comments and tests.
+import copy
 import traceback
+from functools import partial
 
 import gin
+import gym
 import numpy as np
 
 from alpacka import data
 from alpacka.agents import base
 from alpacka.utils import space as space_utils
+from alpacka.networks import core
+
+import tensorflow as tf
+from stable_baselines import logger, deepq
+from stable_baselines.common import tf_util
+from stable_baselines.a2c.utils import find_trainable_variables
+from stable_baselines.deepq import MlpPolicy as DQN_Policy
+from scipy.special import huber
+
+import networks
+from networks import CustomPolicy
+
 
 
 class ValueTraits:
@@ -193,6 +208,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._state2node = {}
         self._model = None
         self._root = None
+        self._step = 0
 
     def _children_of_state(self, parent_state):
         # print("MCTS ch")
@@ -289,10 +305,9 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         # print("obss\n\n\n", obs)
         # print("obss\n\n\n")
 
-        # print('value batch preparation')
-        value_batch = yield [np.array(obs), np.ones([12, 12])]
-        # print('value batch pre', value_batch)
-        value_batch = np.max(value_batch, axis=-1)
+        # print('expand_leaf obs', np.array(obs).astype(np.float32))
+
+        value_batch = yield np.array(obs).astype(np.float32)
 
         # print('value batch', value_batch)
 
@@ -331,14 +346,14 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         ]
 
     # Select the child with the highest score
-    def _select_child(self, node, states_to_avoid):
+    def _select_child(self, node, states_to_avoid, explore=False):
         # print("MCTS select")
         values_and_actions = self._rate_children(node, states_to_avoid)
         if not values_and_actions:
             return None, None
         (max_value, _) = max(values_and_actions)
         argmax = [
-            action for value, action in values_and_actions if value == max_value
+            action for value, action in values_and_actions if (explore or (value == max_value))
         ]
         # INFO: here can be sampling
         if len(argmax) > 1:  # PM: This works faster
@@ -355,7 +370,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._state2node = {}
         state = self._model.clone_state()
         # print("reset 2")
-        (value,) = yield [np.array([observation]), np.array([np.ones(12)])]
+        (value,) = yield np.array([observation])
         # print("reset 4")
         # Initialize root.
         graph_node = self._initialize_graph_node(
@@ -365,6 +380,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         # print("reset 3")
 
     def act(self, observation):
+        self._step += 1
         # print("MCTS act")
         # perform MCTS passes.
         # each pass = tree traversal + leaf evaluation + backprop
@@ -377,7 +393,11 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         #states_to_avoid = {self._root.state} if self._avoid_loops else set()
         states_to_avoid = set()
         # INFO: possible sampling for exploration
-        self._root, action = self._select_child(self._root, states_to_avoid)
+        explore = (
+                # np.random.random() < 0.05 or
+                self._step < 1000)
+        # print('explore', explore, self._step)
+        self._root, action = self._select_child(self._root, states_to_avoid, explore)
 
         return (action, info)
 
@@ -411,8 +431,274 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
             output=data.TensorSignature(shape=(action_space.n,)),
         )
 
+    @staticmethod
+    def compute_metrics(episodes):
+        info = dict()
+        for episode in episodes:
+            for (key, value) in episode.info.items():
+                if key not in info:
+                    info[key] = 0.
+                info[key] += value / len(episodes)
+
+        return info
+
 
 def td_backup(node, action, value, gamma):
     if action is None:
         return value
     return node.rewards[action] + gamma * value
+
+@gin.configurable
+def DqnRubikPolicy():
+    return partial(CustomPolicy, arch_fun=networks.arch_color_embedding)
+
+@gin.configurable
+def DqnBitFlipperPolicy():
+    return partial(DQN_Policy, layers=[512, 512])
+
+@gin.configurable
+class DqnInternalNetwork(core.TrainableNetwork):
+    def __init__(self, network_signature, verbose, policy, learning_rate, gamma, param_noise, loop_breaking, prioritized_replay,
+                 learning_starts, train_freq, batch_size, prioritized_replay_eps, target_network_update_freq, env_class):
+        super().__init__(network_signature)
+        self.env = env_class()
+
+        self.verbose = verbose
+        self.observation_space = self.env.observation_space
+        self.action_space = self.env.action_space
+        self.policy = policy()
+        self.learning_rate = learning_rate
+        self.gamma = gamma
+        self.param_noise = param_noise
+        self.loop_breaking = loop_breaking
+        self.prioritized_replay = prioritized_replay
+        self.learning_starts = learning_starts
+        self.train_freq = train_freq
+        self.batch_size = batch_size
+        self.prioritized_replay_eps = prioritized_replay_eps
+        self.target_network_update_freq = target_network_update_freq
+
+        self.beta_schedule = None
+
+        self.sess = None
+        self.graph = None
+        self.act = None
+        self._train_step = None
+        self.update_target = None
+        self.step_model = None
+        self.summary = None
+        self.proba_step = None
+        self.net_params = None
+
+        self.setup_model()
+
+    def setup_model(self):
+        assert not isinstance(self.action_space, gym.spaces.Box), \
+            "Error: DQN cannot output a gym.spaces.Box action space."
+
+        # If the policy is wrap in functool.partial (e.g. to disable dueling)
+        # unwrap it to check the class type
+        if isinstance(self.policy, partial):
+            test_policy = self.policy.func
+        else:
+            test_policy = self.policy
+
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            self.sess = tf_util.make_session(graph=self.graph)
+
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+            # optimizer = tf.contrib.opt.NadamOptimizer(learning_rate=self.learning_rate)
+            # optimizer = tf.train.MomentumOptimizer(learning_rate=1e-3, momentum=0.9, use_nesterov=True)
+
+            self.act, self._train_step, self.update_target, self.step_model = deepq.build_train(
+                q_func=self.policy,
+                ob_space=self.observation_space,
+                ac_space=self.action_space,
+                optimizer=optimizer,
+                gamma=self.gamma,
+                grad_norm_clipping=10,
+                param_noise=self.param_noise,
+                sess=self.sess
+            )
+            self.proba_step = self.step_model.proba_step
+            self.net_params = find_trainable_variables("deepq")
+
+            # Initialize the parameters and copy them to the target network.
+            tf_util.initialize(self.sess)
+            self.update_target(sess=self.sess)
+
+            self.summary = tf.summary.merge_all()
+
+    @property
+    def params(self):
+        """Returns network parameters."""
+
+        return (
+            self._network_signature,
+            self.verbose,
+            self.observation_space,
+            self.action_space,
+            self.policy,
+            self.learning_rate,
+            self.gamma,
+            self.param_noise,
+            self.loop_breaking,
+            self.prioritized_replay,
+            self.learning_starts,
+            self.train_freq,
+            self.batch_size,
+            self.prioritized_replay_eps,
+            self.target_network_update_freq,
+
+            self.beta_schedule,
+
+            self.sess,
+            self.graph,
+            self.act,
+            self._train_step,
+            self.update_target,
+            self.step_model,
+            self.summary,
+            self.proba_step,
+            self.net_params,
+
+            self.env,
+        )
+
+    @params.setter
+    def params(self, new_params):
+        """Sets network parameters."""
+
+        (
+            self._network_signature,
+            self.verbose,
+            self.observation_space,
+            self.action_space,
+            self.policy,
+            self.learning_rate,
+            self.gamma,
+            self.param_noise,
+            self.loop_breaking,
+            self.prioritized_replay,
+            self.learning_starts,
+            self.train_freq,
+            self.batch_size,
+            self.prioritized_replay_eps,
+            self.target_network_update_freq,
+
+            self.beta_schedule,
+
+            self.sess,
+            self.graph,
+            self.act,
+            self._train_step,
+            self.update_target,
+            self.step_model,
+            self.summary,
+            self.proba_step,
+            self.net_params,
+
+            self.env,
+        ) = new_params
+
+    def make_action(self, is_in_loop, update_eps, part_obs, kwargs):
+        with self.sess.as_default():
+            # Loop breaking
+            if self.loop_breaking and is_in_loop:
+                # update_eps_value = (update_eps + 1.) / 2.
+                update_eps_value = 1.
+            else:
+                update_eps_value = update_eps
+            # if self.boltzmann:
+            #     values = self.predict_q_values(np.array(part_obs))[0]
+            #     exp = 1. / update_eps_value
+            #     action = np.random.choice(np.arange(0, values.shape[0]), p=(exp ** values) / sum(exp ** values))
+            # else:
+            #     action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
+            action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
+
+        return action
+
+    def predict(self, observation, state=None, mask=None, deterministic=True):
+        return np.max(self.predict_q_values(observation, state, mask, deterministic), axis=-1)
+
+    def predict_action(self, observation, state=None, mask=None, deterministic=True):
+        observation = np.array(observation)
+        # vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
+        vectorized_env = False
+
+        observation = observation.reshape((-1,) + self.observation_space.shape)
+        with self.sess.as_default():
+            actions, _, _ = self.step_model.step(observation, deterministic=deterministic)
+
+        if not vectorized_env:
+            actions = np.array([actions[0]])
+
+        return actions
+
+    def predict_q_values(self, observation, state=None, mask=None, deterministic=True):
+        observation = np.array(observation)
+        observation = observation.reshape((-1,) + self.observation_space.shape)
+
+        with self.sess.as_default():
+            _, q_values, _ = self.step_model.step(observation, deterministic=deterministic)
+
+        return q_values
+
+    def action_probability(self, observation, state=None, mask=None):
+        observation = np.array(observation)
+        # vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
+        vectorized_env = False
+
+        observation = observation.reshape((-1,) + self.observation_space.shape)
+        actions_proba = self.proba_step(observation, state, mask)
+
+        if not vectorized_env:
+            if state is not None:
+                raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
+            actions_proba = actions_proba[0]
+
+        return actions_proba
+
+    def learning_step(self, step, replay_buffer, writer, episode_losses):
+        if step > self.learning_starts and step % self.train_freq == 0:
+            # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
+            if self.prioritized_replay:
+                experience = replay_buffer.sample(self.batch_size, beta=self.beta_schedule.value(step))
+                (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
+            else:
+                obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(self.batch_size)
+                weights, batch_idxes = np.ones_like(rewards), None
+
+            if writer is not None:
+                # run loss backprop with summary, but once every 100 steps save the metadata
+                # (memory, compute time, ...)
+                if (1 + step) % 100 == 0:
+                    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                    run_metadata = tf.RunMetadata()
+                    summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                          dones, weights, sess=self.sess, options=run_options,
+                                                          run_metadata=run_metadata)
+                    writer.add_run_metadata(run_metadata, 'step%d' % step)
+                else:
+                    summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                          dones, weights, sess=self.sess)
+                writer.add_summary(summary, step)
+            else:
+                _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
+                                                sess=self.sess)
+
+            loss = np.mean(np.dot(weights, [huber(1., error) for error in td_errors]))
+            episode_losses.append(loss)
+
+            if self.prioritized_replay:
+                new_priorities = np.abs(td_errors) + self.prioritized_replay_eps
+                replay_buffer.update_priorities(batch_idxes, new_priorities)
+
+        if step > self.learning_starts and step % self.target_network_update_freq == 0:
+            # Update target network periodically.
+            self.update_target(sess=self.sess)
+
+    def train(self, data_stream):
+        raise NotImplementedError('Do not use train() in DqnInternalNetwork')
