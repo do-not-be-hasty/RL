@@ -10,7 +10,7 @@
      partition: plgrid
      requirements_file: neptune_resources/requirements_remote.txt
      time: 4300
-     cpu: 16
+     cpu: 12
      gpu: 0
      mem: 25G
      slurm_url: <username>@pro.cyfronet.pl

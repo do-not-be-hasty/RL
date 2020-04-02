@@ -393,9 +393,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         #states_to_avoid = {self._root.state} if self._avoid_loops else set()
         states_to_avoid = set()
         # INFO: possible sampling for exploration
-        explore = (
-                # np.random.random() < 0.05 or
-                self._step < 1000)
+        explore = (np.random.random() < max((1e5 - self._step) / 1e5, 0.1))
         # print('explore', explore, self._step)
         self._root, action = self._select_child(self._root, states_to_avoid, explore)
 
