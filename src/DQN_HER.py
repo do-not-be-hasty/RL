@@ -184,6 +184,7 @@ class DQN_HER(OffPolicyRLModel):
             episode_finals = [0] * log_interval
             episode_losses = []
             is_in_loop = False
+            loss_accumulator = [0.] * 50
 
             episode_places = set()
             episode_div = [0] * log_interval
@@ -320,8 +321,9 @@ class DQN_HER(OffPolicyRLModel):
                     if self.prioritized_replay:
                         experience = self.replay_buffer.sample(self.batch_size, beta=self.beta_schedule.value(step))
                         (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
+                        weights /= np.mean(weights)
                     else:
-                        obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer.sample(self.batch_size)
+                        obses_t, actions, rewards, obses_tp1, dones, info = self.replay_buffer.sample(self.batch_size)
                         weights, batch_idxes = np.ones_like(rewards), None
 
                     if writer is not None:
@@ -341,6 +343,20 @@ class DQN_HER(OffPolicyRLModel):
                     else:
                         _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
                                                         sess=self.sess)
+
+                    if not self.prioritized_replay:
+                        for (dist, error) in zip(info, td_errors):
+                            if len(loss_accumulator) < dist + 1:
+                                loss_accumulator += [0.] * (dist + 1 - len(loss_accumulator))
+                            loss_accumulator[dist] = loss_accumulator[dist] * 0.99 + huber(1., error)
+
+
+                        if step % 1000 == 0:
+                            print('accumulator', [int(x) for x in loss_accumulator])
+                            weights_sum = sum(loss_accumulator)
+                            print('normalized ', ['%.2f' % (x / weights_sum) for x in loss_accumulator])
+                            print('distance   ', info)
+                        self.replay_buffer.update_weights(loss_accumulator)
 
                     loss = np.mean(np.dot(weights, [huber(1., error) for error in td_errors]))
                     episode_losses.append(loss)

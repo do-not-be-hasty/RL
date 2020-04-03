@@ -146,6 +146,11 @@ def log_rubik_ultimate_infty(model):
     return np.mean([single_infty(model, env) for _ in range(100)])
 
 
+def log_distance_weights(idxes, weights, weight_sum):
+    for i in idxes:
+        neptune_logger('weight {0}'.format(i), weights[i] / (weight_sum + 1e-3))
+
+
 def callback(_locals, _globals):
     interval = 100 if _locals['log_interval'] is None else _locals['log_interval']
 
@@ -173,6 +178,9 @@ def callback(_locals, _globals):
         log_rubik_ultimate_eval([2, 4, 7], _locals['self'], _locals['self'].env)
         neptune_logger('infty', log_rubik_infty(_locals['self']))
         neptune_logger('ultimate infty', log_rubik_ultimate_infty(_locals['self']))
+
+        # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
+        # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
 
     return False
 
