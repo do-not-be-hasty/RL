@@ -3,7 +3,7 @@ from gym_maze import RandomMazeGenerator
 from environment_builders import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze, make_env_Sokoban, \
     make_env_GoalSokoban, make_env_Rubik, make_env_GoalRubik
 from utility import callback, evaluate
-from models import HER_model, MTR_model, DQN_model, HER_model_conv
+from models import HER_model, MTR_model, DQN_model, HER_model_conv, restore_HER_model
 
 
 def learn_BitFlipper_HER():
@@ -169,6 +169,8 @@ def learn_Rubik_HER():
         shuffles=100,
     )
     model = HER_model(env)
+    # model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/baseline_2020-04-07-05:32:42_80000.pkl', env)
+    # model = restore_HER_model('/net/people/plgmizaw/checkpoints/baseline_2020-04-07-05:32:42_80000.pkl', env)
 
     try:
         model.learn(total_timesteps=120000000,

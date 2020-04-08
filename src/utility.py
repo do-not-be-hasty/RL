@@ -156,26 +156,26 @@ def callback(_locals, _globals):
 
     if len(_locals['episode_rewards']) % interval == 0:
         neptune_logger('success rate', np.mean(_locals['episode_success']))
-        neptune_logger('no exploration success rate',
-                       clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=25))
+        # neptune_logger('no exploration success rate',
+        #                clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=25))
         neptune_logger('exploration', _locals['update_eps'])
         ep_div = np.array(_locals['episode_div'])
         ep_succ = np.array(_locals['episode_success'])
-        neptune_logger('success move diversity',
-                       np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
+        # neptune_logger('success move diversity',
+        #                np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
         neptune_logger('failure move diversity',
                        np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
         neptune_logger('loss', np.mean(_locals['episode_losses']))
-        neptune_logger('loss_min', np.min(_locals['episode_losses']))
-        neptune_logger('loss_max', np.max(_locals['episode_losses']))
+        # neptune_logger('loss_min', np.min(_locals['episode_losses']))
+        # neptune_logger('loss_max', np.max(_locals['episode_losses']))
 
         # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
-        log_rubik_curriculum_eval([2, 4, 7, 10, 13, 16, 19, 24, 50], _locals['self'], _locals['self'].env)
-        log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
-        log_rubik_ultimate_eval([2, 4, 7], _locals['self'], _locals['self'].env)
+        log_rubik_curriculum_eval([4, 7, 8, 9, 10, 11, 13, 16], _locals['self'], _locals['self'].env, neval=30)
+        # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
+        log_rubik_ultimate_eval([7], _locals['self'], _locals['self'].env)
         neptune_logger('infty', log_rubik_infty(_locals['self']))
         neptune_logger('ultimate infty', log_rubik_ultimate_infty(_locals['self']))
 
