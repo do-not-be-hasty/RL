@@ -16,8 +16,8 @@ import networks
 from networks import CustomPolicy
 
 
-def restore_HER_model(path, env):
-    return HER.load(path, env)
+def restore_HER_model(path, env, **kwargs):
+    return HER.load(path, env, **kwargs)
 
 
 def DQN_model(env):

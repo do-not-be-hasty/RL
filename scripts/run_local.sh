@@ -68,4 +68,5 @@ ssh-add
 
 echo "Run experiment locally"
 set -o xtrace
-python ../src/run.py --ex ../src/project_conf.py
+#python ../src/run.py --ex ../src/project_conf.py
+python ../src/stable_her.py --ex ../src/project_conf.py

@@ -12,7 +12,7 @@ if "NEPTUNE_API_TOKEN" not in os.environ or "PROJECT_QUALIFIED_NAME" not in os.e
 tags = [os.environ["PROJECT_TAG"]] if "PROJECT_TAG" in os.environ.keys() else []
 
 exp = Experiment(name='HER experiment',
-                 script='python run.py',
+                 script='python stable_her.py',
                  project=os.environ["PROJECT_QUALIFIED_NAME"],
                  tags=tags,
                  env={"NEPTUNE_API_TOKEN": os.environ["NEPTUNE_API_TOKEN"]},
