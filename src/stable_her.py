@@ -10,6 +10,9 @@ from stable_baselines.her import GoalSelectionStrategy, HERGoalEnvWrapper
 from stable_baselines.common.bit_flipping_env import BitFlippingEnv
 from stable_baselines.deepq import MlpPolicy
 
+from mrunner.helpers.client_helper import get_configuration
+params = get_configuration(print_diagnostics=True, with_neptune=True)
+
 import networks
 from environment_builders import make_env_Rubik
 import numpy as np
@@ -84,7 +87,7 @@ model = HER(policy, env, model_class, n_sampled_goal=12, goal_selection_strategy
             verbose=1)
 
 # Train the model
-model.learn(1000000, callback=her_callback)
+model.learn(10000000, callback=her_callback)
 
 sys.exit(0)
 
