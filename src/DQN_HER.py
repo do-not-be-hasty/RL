@@ -169,7 +169,7 @@ class DQN_HER(OffPolicyRLModel):
                                                         final_p=1.0)
             else:
                 # self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
-                self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight)
+                self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight, use_sampling_weights=False)
                 # self.replay_buffer = SimpleReplayBuffer(self.buffer_size)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.
@@ -351,11 +351,11 @@ class DQN_HER(OffPolicyRLModel):
                             loss_accumulator[dist] = loss_accumulator[dist] * 0.99 + huber(1., error)
 
 
-                        if step % 1000 == 0:
-                            print('accumulator', [int(x) for x in loss_accumulator])
-                            weights_sum = sum(loss_accumulator)
-                            print('normalized ', ['%.2f' % (x / weights_sum) for x in loss_accumulator])
-                            print('distance   ', info)
+                        # if step % 1000 == 0:
+                        #     print('accumulator', [int(x) for x in loss_accumulator])
+                        #     weights_sum = sum(loss_accumulator)
+                        #     print('normalized ', ['%.2f' % (x / weights_sum) for x in loss_accumulator])
+                        #     print('distance   ', info)
                         self.replay_buffer.update_weights(loss_accumulator)
 
                     loss = np.mean(np.dot(weights, [huber(1., error) for error in td_errors]))

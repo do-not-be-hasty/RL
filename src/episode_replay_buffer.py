@@ -6,7 +6,8 @@ from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100, sampling_cut=-1):
+    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100,
+                 sampling_cut=-1, use_sampling_weights=False):
         """
         Create Replay buffer.
 
@@ -23,6 +24,7 @@ class ReplayBuffer(object):
         self._beta_max = sampling_mean_max
         self._sampling_cut = sampling_cut
         self._distance_weights = []
+        self._use_sampling_weights = use_sampling_weights
 
     def __len__(self):
         return len(self._storage)
@@ -73,6 +75,7 @@ class ReplayBuffer(object):
             data = self._storage[i]
             obs_t, action, reward, obs_tp1, done, ep_range = data
             replace_goal = has_replaced_goal[it]
+
             # print(obs_t, action, reward, obs_tp1, done, ep_range)
 
             def push_trans(goal, true_replay=False):
@@ -99,19 +102,20 @@ class ReplayBuffer(object):
                 ep_range += self._maxsize
 
             if self._hindsight_curriculum:
-                offset = int(np.random.exponential(self._beta))%(ep_range - i)
+                offset = int(np.random.exponential(self._beta)) % (ep_range - i)
             else:
                 # if self._sampling_cut > 0:
                 #     offset = np.random.randint(0, min(ep_range - i, self._sampling_cut))
                 # else:
 
-                # sample_range = ep_range - i
-                # offset = np.random.choice(sample_range, 1, p=prob[:sample_range]/np.sum(prob[:sample_range]))[0]
-                offset = np.random.randint(0, ep_range - i)
-
+                if self._use_sampling_weights:
+                    sample_range = ep_range - i
+                    offset = np.random.choice(sample_range, 1, p=prob[:sample_range]/np.sum(prob[:sample_range]))[0]
+                else:
+                    offset = np.random.randint(0, ep_range - i)
 
             distances.append(offset)
-            _, _, _, new_obs, _, _ = self._storage[(i+offset) % self._maxsize]
+            _, _, _, new_obs, _, _ = self._storage[(i + offset) % self._maxsize]
             add_goal = new_obs['achieved_goal']
             push_trans(add_goal)
 
@@ -126,8 +130,8 @@ class ReplayBuffer(object):
             if ep_range <= i:
                 ep_range += self._maxsize
 
-            d = np.random.randint(0, ep_range-i)
-            _, _, _, obs_2, _, _ = self._storage[(i+d) % self._maxsize]
+            d = np.random.randint(0, ep_range - i)
+            _, _, _, obs_2, _, _ = self._storage[(i + d) % self._maxsize]
 
             obses_beg.append(obs_1['observation'])
             obses_step.append(obs_s['observation'])
@@ -136,7 +140,7 @@ class ReplayBuffer(object):
             # if np.array_equal(obs_1['observation'], obs_2['observation']):
             #     dist.append(0.)
             # else:
-            dist.append(d+1.)
+            dist.append(d + 1.)
 
         return np.array(obses_beg), np.array(obses_step), np.array(obses_fin), np.array(dist)
 
@@ -157,7 +161,7 @@ class ReplayBuffer(object):
             print("Sampling from empty buffer")
             return np.array([])
 
-        num_real_goals = int(batch_size//(self._hindsight+1))
+        num_real_goals = int(batch_size // (self._hindsight + 1))
         idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
         has_replaced_goal = [False] * num_real_goals + [True] * (batch_size - num_real_goals)
         np.random.shuffle(has_replaced_goal)

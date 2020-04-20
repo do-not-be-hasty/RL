@@ -121,29 +121,35 @@ def log_rubik_ultimate_eval(shuffles_list, model, env, neval=10):
 def log_rubik_infty(model):
     env = copy.deepcopy(model.env)
 
-    def single_infty(model, env):
-        env.randomize(100)
+    def single_infty(model, env, distance):
+        env.randomize(distance)
         obs = env._get_state()
         q_values = model.predict_q_values(
             np.concatenate((obs, env.goal_obs), axis=-1)).flatten()
         return np.mean(q_values)
 
-    return np.mean([single_infty(model, env) for _ in range(100)])
+    for distance in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]:
+        distance_infty = np.mean([single_infty(model, env, distance) for _ in range(100)])
+        neptune_logger('infty on {0}'.format(distance), distance_infty)
+        print('infty_log', distance, distance_infty)
 
 
 def log_rubik_ultimate_infty(model):
     env = copy.deepcopy(model.env)
 
-    def single_infty(model, env):
+    def single_infty(model, env, distance):
         env.randomize(100)
         goal = env._get_state()
-        env.randomize(100)
+        env.randomize(distance)
         obs = env._get_state()
         q_values = model.predict_q_values(
             np.concatenate((obs, goal), axis=-1)).flatten()
         return np.mean(q_values)
 
-    return np.mean([single_infty(model, env) for _ in range(100)])
+    for distance in [1, 2, 3, 4, 6, 8, 10, 13, 16, 19, 23]:
+        distance_infty = np.mean([single_infty(model, env, distance) for _ in range(100)])
+        neptune_logger('ultimate infty on {0}'.format(distance), distance_infty)
+        print('ultimate_infty_log', distance, distance_infty)
 
 
 def log_distance_weights(idxes, weights, weight_sum):
@@ -173,11 +179,11 @@ def callback(_locals, _globals):
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
-        log_rubik_curriculum_eval([4, 7, 8, 9, 10, 11, 13, 16], _locals['self'], _locals['self'].env, neval=30)
+        log_rubik_curriculum_eval([3, 5, 7, 8, 9, 10, 11, 13, 16], _locals['self'], _locals['self'].env, neval=30)
         # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
         log_rubik_ultimate_eval([7], _locals['self'], _locals['self'].env)
-        neptune_logger('infty', log_rubik_infty(_locals['self']))
-        neptune_logger('ultimate infty', log_rubik_ultimate_infty(_locals['self']))
+        log_rubik_infty(_locals['self'])
+        log_rubik_ultimate_infty(_locals['self'])
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
         # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
