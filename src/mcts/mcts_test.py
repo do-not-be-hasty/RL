@@ -449,13 +449,19 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
 
     def add_metrics(self, info, model_env, epoch):
         if epoch % 40 == 0:
-            for steps in [7, 10, 13, 16]:
-                env = copy.deepcopy(model_env)
-                env.env.scrambleSize = steps
-                env.env.step_limit = steps + 5
+            model_passes = self._n_passes
 
-                episode = yield from self.solve(env, epoch, dummy=True)
-                info['mcts_{0}'.format(steps)] = int(episode.solved)
+            for steps in [7, 10, 13, 16]:
+                for passes in [10, 50]:
+                    self._n_passes = passes
+                    env = copy.deepcopy(model_env)
+                    env.env.scrambleSize = steps
+                    env.env.step_limit = steps + 5
+
+                    episode = yield from self.solve(env, epoch, dummy=True)
+                    info['mcts({0}) shuffles({1})'.format(passes, steps)] = int(episode.solved)
+
+            self._n_passes = model_passes
 
 
 def td_backup(node, action, value, gamma):
