@@ -170,7 +170,7 @@ def learn_Rubik_HER():
     )
     model = HER_model(env)
     # model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/baseline_2020-04-07-05:32:42_80000.pkl', env)
-    # model = restore_HER_model('/net/people/plgmizaw/checkpoints/baseline_2020-04-07-05:32:42_80000.pkl', env)
+    # model = restore_HER_model('/net/people/plgmizaw/checkpoints/baseline_2020-04-10-13:02:09_60000', env, learning_rate=3e-4)
 
     try:
         model.learn(total_timesteps=120000000,
