@@ -23,6 +23,7 @@ KerasNetwork.train_callbacks = None
 # ==============================================================================
 DqnInternalNetwork.verbose = 0
 DqnInternalNetwork.policy = @mcts_test.DqnRubikPolicy
+#DqnInternalNetwork.policy = @mcts_test.DqnBitFlipperPolicy
 DqnInternalNetwork.learning_rate = 5e-4
 DqnInternalNetwork.gamma = 0.98
 DqnInternalNetwork.param_noise = False
@@ -66,6 +67,7 @@ QualityNetworkNewLeafRater.use_policy = True
 # Parameters for Runner:
 # ==============================================================================
 Runner.agent_class = @mcts_test.TestDeterministicMCTSAgent
+#Runner.batch_stepper_class = @alpacka.batch_steppers.RayBatchStepper
 Runner.batch_stepper_class = @alpacka.batch_steppers.LocalBatchStepper
 
 #Runner.env_class = @mcts_rubik_env.TestGoalBitFlipper

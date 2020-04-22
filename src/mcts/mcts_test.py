@@ -574,15 +574,15 @@ class DqnInternalNetwork(core.TrainableNetwork):
 
             self.beta_schedule,
 
-            self.sess,
-            self.graph,
-            self.act,
-            self._train_step,
-            self.update_target,
-            self.step_model,
-            self.summary,
-            self.proba_step,
-            self.net_params,
+            self.sess,  # disable for ray
+            self.graph,  # disable for ray
+            self.act,  # disable for ray
+            self._train_step,  # disable for ray
+            self.update_target,  # disable for ray
+            self.step_model,  # disable for ray
+            self.summary,  # disable for ray
+            self.proba_step,  # disable for ray
+            self.net_params,  # disable for ray
 
             self.env,
         )
@@ -610,15 +610,15 @@ class DqnInternalNetwork(core.TrainableNetwork):
 
             self.beta_schedule,
 
-            self.sess,
-            self.graph,
-            self.act,
-            self._train_step,
-            self.update_target,
-            self.step_model,
-            self.summary,
-            self.proba_step,
-            self.net_params,
+            self.sess,  # disable for ray
+            self.graph,  # disable for ray
+            self.act,  # disable for ray
+            self._train_step,  # disable for ray
+            self.update_target,  # disable for ray
+            self.step_model,  # disable for ray
+            self.summary,  # disable for ray
+            self.proba_step,  # disable for ray
+            self.net_params,  # disable for ray
 
             self.env,
         ) = new_params
