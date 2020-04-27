@@ -78,9 +78,11 @@ def clear_eval(model, env, neval=100, loop_break=False, with_diversity=False):
                 return 0, steps
 
     runs = [single_eval() for i in range(neval)]
-    scores, divers = zip(*runs)
+    scores, raw_divers = zip(*runs)
+    divers = 0 if np.sum(scores) == 0 else np.dot(raw_divers, scores) / np.sum(scores)
+
     if with_diversity:
-        return np.mean(scores), np.mean(divers)
+        return np.mean(scores), divers
     else:
         return np.mean(scores)
 
