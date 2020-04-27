@@ -122,11 +122,12 @@ def log_rubik_infty(model, distances):
     env = copy.deepcopy(model.env)
 
     def single_infty(model, env, distance):
-        env.randomize(distance)
+        env.scrambleSize = distance
+        env.reset()
         obs = env._get_state()
         q_values = model.predict_q_values(
             np.concatenate((obs, env.goal_obs), axis=-1)).flatten()
-        return np.mean(q_values)
+        return np.max(q_values)
 
     for distance in distances:
         distance_infty = np.mean([single_infty(model, env, distance) for _ in range(100)])
@@ -183,10 +184,10 @@ def callback(_locals, _globals):
         # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
         log_rubik_ultimate_eval([7], _locals['self'], _locals['self'].env)
 
-        # log_rubik_infty(_locals['self'], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30])
-        # log_rubik_ultimate_infty(_locals['self'], [1, 2, 3, 4, 6, 8, 10, 13, 16, 19, 23])
-        log_rubik_infty(_locals['self'], [100])
-        log_rubik_ultimate_infty(_locals['self'], [100])
+        log_rubik_infty(_locals['self'], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30])
+        log_rubik_ultimate_infty(_locals['self'], [1, 2, 3, 4, 6, 8, 10, 13, 16, 19, 23])
+        # log_rubik_infty(_locals['self'], [100])
+        # log_rubik_ultimate_infty(_locals['self'], [100])
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
         # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
