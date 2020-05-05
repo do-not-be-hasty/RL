@@ -235,6 +235,7 @@ class DQN_HER(OffPolicyRLModel):
                         action = np.random.choice(np.arange(0, values.shape[0]), p=(exp ** values) / sum(exp ** values))
                     else:
                         action = self.act(np.array(part_obs)[None], update_eps=update_eps_value, **kwargs)[0]
+                # action = self.env.action_space.sample()
                 env_action = action
                 reset = False
                 new_obs, rew, done, _ = self.env.step(env_action)

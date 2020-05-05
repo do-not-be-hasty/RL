@@ -44,6 +44,7 @@ def learn_Maze_HER():
     try:
         model.learn(total_timesteps=20000000,
                     callback=callback,
+                    log_interval=20,
                     )
     except KeyboardInterrupt:
         pass

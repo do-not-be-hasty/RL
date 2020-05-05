@@ -89,13 +89,14 @@ def clear_eval(model, env, neval=100, loop_break=False, with_diversity=False):
 
 def rubik_ultimate_eval(model, env, neval=100):
     env = copy.deepcopy(env)
+    env.scrambling = True
     scrambles = env.scrambleSize
     env.scrambleSize = 0
 
     def single_eval():
         env.reset()
         env.randomize(100)
-        env.goal_obs = env._get_state()
+        env.set_goal(env._get_state())
         env.randomize(scrambles)
         obs = env._get_goal_observation(env._get_state())
 
@@ -115,6 +116,7 @@ def rubik_ultimate_eval(model, env, neval=100):
 
 def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10, loop_break=False, with_diversity=False):
     env = copy.deepcopy(env)
+    env.scrambling = True
 
     for shuffle in shuffles_list:
         env.scrambleSize = shuffle
@@ -128,6 +130,7 @@ def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10, loop_break=Fa
 
 def log_rubik_ultimate_eval(shuffles_list, model, env, neval=10):
     env = copy.deepcopy(env)
+    env.scrambling = True
 
     for shuffle in shuffles_list:
         env.scrambleSize = shuffle
