@@ -135,6 +135,7 @@ class GraphNode:
         self.state = state
         self.terminal = terminal
         self.solved = solved
+        self.visits = 1
 
 
 class TreeNode:
@@ -179,6 +180,13 @@ class TreeNode:
     @terminal.setter
     def terminal(self, terminal):
         self.node.terminal = terminal
+
+    @property
+    def visits(self):
+        return self.node.visits
+
+    def visit(self):
+        self.node.visits += 1
 
 
 @gin.configurable
@@ -257,6 +265,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
             states_to_avoid = seen_states if self._avoid_loops else set()
             new_node, action = self._select_child(node, states_to_avoid)  #
             search_path.append((node, action))
+            node.visit()
             node = new_node
         # at this point node represents a leaf in the tree (and is None for Dead
         # End). node does not belong to search_path.
@@ -330,25 +339,27 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
 
         return leaf.value_acc.get()
 
-    def _child_index(self, parent, action):
+    def _child_index(self, parent, action, selection=False):
         # print("MCTS idx")
         accumulator = parent.children[action].value_acc
         value = accumulator.index()
-        return td_backup(parent, action, value, self._gamma)
+        # TODO sprawdzić działanie przy różnych konfiguracjach selekcji (0: max value, może być też np. children.visits)
+        ucb = 0 if selection else np.sqrt(np.log(parent.visits) / parent.children[action].visits)
+        return td_backup(parent, action, value, self._gamma) + ucb
 
-    def _rate_children(self, node, states_to_avoid):
+    def _rate_children(self, node, states_to_avoid, selection=False):
         # print("MCTS rate")
         assert self._avoid_loops or len(states_to_avoid) == 0
         return [
-            (self._child_index(node, action), action)
+            (self._child_index(node, action, selection), action)
             for action, child in node.children.items()
             if child.state not in states_to_avoid
         ]
 
     # Select the child with the highest score
-    def _select_child(self, node, states_to_avoid, explore=False):
+    def _select_child(self, node, states_to_avoid, explore=False, selection=False):
         # print("MCTS select")
-        values_and_actions = self._rate_children(node, states_to_avoid)
+        values_and_actions = self._rate_children(node, states_to_avoid, selection)
         if not values_and_actions:
             return None, None
         (max_value, _) = max(values_and_actions)
@@ -395,7 +406,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         # INFO: possible sampling for exploration
         explore = (np.random.random() < max((1e5 - self._step) / 1e5, 0.1))
         # print('explore', explore, self._step)
-        self._root, action = self._select_child(self._root, states_to_avoid, explore)
+        self._root, action = self._select_child(self._root, states_to_avoid, explore, selection=True)
 
         return (action, info)
 
