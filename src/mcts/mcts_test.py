@@ -207,7 +207,6 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         **kwargs
     ):
         super().__init__(**kwargs)
-        # print("MCTS init")
         self._gamma = gamma
         self._n_passes = n_passes
         self._avoid_loops = avoid_loops
@@ -216,10 +215,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._state2node = {}
         self._model = None
         self._root = None
-        self._step = 0
 
     def _children_of_state(self, parent_state):
-        # print("MCTS ch")
         old_state = self._model.clone_state()
 
         self._model.restore_state(parent_state)
@@ -242,17 +239,14 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         return results
 
     def run_mcts_pass(self):
-        # print("MCTS run")
         # search_path = list of tuples (node, action)
         # leaf does not belong to search_path (important for not double counting
         # its value)
         leaf, search_path = self._traverse()
         value = yield from self._expand_leaf(leaf)
-        # print("mcts_pass, leaf expanded")
         self._backpropagate(search_path, value)
 
     def _traverse(self):
-        # print("MCTS trav")
         node = self._root
         seen_states = set()
         search_path = []
@@ -265,14 +259,12 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
             states_to_avoid = seen_states if self._avoid_loops else set()
             new_node, action = self._select_child(node, states_to_avoid)  #
             search_path.append((node, action))
-            node.visit()
             node = new_node
         # at this point node represents a leaf in the tree (and is None for Dead
         # End). node does not belong to search_path.
         return node, search_path
 
     def _backpropagate(self, search_path, value):
-        # print("MCTS bp")
         # Note that a pair
         # (node, action) can have the following form:
         # (Terminal node, None),
@@ -284,7 +276,6 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
             node.value_acc.add(value)
 
     def _initialize_graph_node(self, initial_value, state, done, solved):
-        # print("MCTS node")
         value_acc = self._value_acc_class(initial_value)
         new_node = GraphNode(
             value_acc,
@@ -297,7 +288,6 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         return new_node
 
     def _expand_leaf(self, leaf):
-        # print("MCTS leaf")
         if leaf is None:  # Dead End
             return self._value_traits.dead_end
 
@@ -309,18 +299,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         obs, rewards, dones, solved, states = self._children_of_state(
             leaf.state
         )
-        # print(full_obs)
-        # obs = np.concatenate([full_obs['observation'], full_obs['desired_goal']], axis=-1)
-        # print("obss\n\n\n", obs)
-        # print("obss\n\n\n")
-
-        # print('expand_leaf obs', np.array(obs).astype(np.float32))
 
         value_batch = yield np.array(obs).astype(np.float32)
-
-        # print('value batch', value_batch)
-
-        # print("expand_fin")
 
         for idx, action in enumerate(
             space_utils.element_iter(self._action_space)
@@ -339,32 +319,27 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
 
         return leaf.value_acc.get()
 
-    def _child_index(self, parent, action, selection=False):
-        # print("MCTS idx")
+    def _child_index(self, parent, action):
         accumulator = parent.children[action].value_acc
         value = accumulator.index()
-        # TODO sprawdzić działanie przy różnych konfiguracjach selekcji (0: max value, może być też np. children.visits)
-        ucb = 0 if selection else np.sqrt(np.log(parent.visits) / parent.children[action].visits)
-        return td_backup(parent, action, value, self._gamma) + ucb
+        return td_backup(parent, action, value, self._gamma)
 
-    def _rate_children(self, node, states_to_avoid, selection=False):
-        # print("MCTS rate")
+    def _rate_children(self, node, states_to_avoid):
         assert self._avoid_loops or len(states_to_avoid) == 0
         return [
-            (self._child_index(node, action, selection), action)
+            (self._child_index(node, action), action)
             for action, child in node.children.items()
             if child.state not in states_to_avoid
         ]
 
     # Select the child with the highest score
-    def _select_child(self, node, states_to_avoid, explore=False, selection=False):
-        # print("MCTS select")
-        values_and_actions = self._rate_children(node, states_to_avoid, selection)
+    def _select_child(self, node, states_to_avoid):
+        values_and_actions = self._rate_children(node, states_to_avoid)
         if not values_and_actions:
             return None, None
         (max_value, _) = max(values_and_actions)
         argmax = [
-            action for value, action in values_and_actions if (explore or (value == max_value))
+            action for value, action in values_and_actions if value == max_value
         ]
         # INFO: here can be sampling
         if len(argmax) > 1:  # PM: This works faster
@@ -374,105 +349,67 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         return node.children[action], action
 
     def reset(self, env, observation):
-        # print("MCTS reset")
         yield from super().reset(env, observation)
         self._model = env
         # 'reset' mcts internal variables: _state2node and _model
         self._state2node = {}
         state = self._model.clone_state()
-        # print("reset 2")
         (value,) = yield np.array([observation])
-        # print("reset 4")
         # Initialize root.
         graph_node = self._initialize_graph_node(
             initial_value=value, state=state, done=False, solved=False
         )
         self._root = TreeNode(graph_node)
-        # print("reset 3")
 
     def act(self, observation):
-        self._step += 1
-        # print("MCTS act")
         # perform MCTS passes.
         # each pass = tree traversal + leaf evaluation + backprop
         for _ in range(self._n_passes):
             yield from self.run_mcts_pass()
-        # print("act, mcts_pass-ed")
         info = {'node': self._root}
         # INFO: below line guarantees that we do not perform one-step loop (may
         # be considered slight hack)
-        #states_to_avoid = {self._root.state} if self._avoid_loops else set()
-        states_to_avoid = set()
+        states_to_avoid = {self._root.state} if self._avoid_loops else set()
         # INFO: possible sampling for exploration
-        explore = (np.random.random() < max((1e5 - self._step) / 1e5, 0.1))
-        # print('explore', explore, self._step)
-        self._root, action = self._select_child(self._root, states_to_avoid, explore, selection=True)
+        self._root, action = self._select_child(self._root, states_to_avoid)
 
         return (action, info)
 
     @staticmethod
     def postprocess_transitions(transitions):
-        # print("MCTS postp")
-        # print(transitions)
-        postprocessed_transitions = transitions
-        # for (i, transition) in enumerate(transitions):
+        def discounted_distance(dist):
+            # return -(gamma**dist - 1)/(gamma - 1)
+            return -dist
+
+        postprocessed_transitions = []
+
+        for i in range(len(transitions)):
+            for _ in range(1):
+                offset = np.random.randint(0, len(transitions)-i)
+                value = discounted_distance(offset)
+                targeted_obs = np.concatenate([transitions[i].observation, transitions[i+offset].observation], axis=-1)
+                postprocessed_transitions.append(
+                    transitions[i]._replace(observation=targeted_obs, agent_info={'value': value}))
+
+
+        # for transition in transitions:
         #     node = transition.agent_info['node']
         #     value = node.value_acc.target().item()
-        #
-        #     offset = np.random.randint(i, len(transitions))
-        #     goal = transitions[offset].next_observation['achieved_goal']
-        #     # goal = transitions[offset].next_observation['desired_goal']
-        #     done = np.array_equal(transition.next_observation['achieved_goal'], goal)
-        #     reward = 0 if done else transition.reward
-        #     observation = np.concatenate([transition.observation['observation'], goal], axis=-1)
-        #     next_observation = np.concatenate([transition.next_observation['observation'], goal], axis=-1)
-        #
         #     postprocessed_transitions.append(
-        #         transition._replace(observation=observation, reward=reward, done=done, next_observation=next_observation,
-        #                             agent_info={'value': value}))
+        #         transition._replace(agent_info={'value': value}))
         return postprocessed_transitions
 
     @staticmethod
     def network_signature(observation_space, action_space):
-        # print("MCTS sign")
+        del action_space
         return data.NetworkSignature(
             input=space_utils.signature(observation_space),
-            output=data.TensorSignature(shape=(action_space.n,)),
+            output=data.TensorSignature(shape=(1,)),
         )
 
-    @staticmethod
-    def compute_metrics(episodes):
-        info = dict()
-        count = dict()
-
-        for episode in episodes:
-            for (key, value) in episode.info.items():
-                if key not in info:
-                    info[key] = 0.
-                    count[key] = 0
-                info[key] += value
-                count[key] += 1
-
-        for (key, val) in count.items():
-            info[key] /= val
-
-        return info
-
-    def add_metrics(self, info, model_env, epoch):
-        if epoch % 40 == 0:
-            model_passes = self._n_passes
-
-            for steps in [7, 10, 13, 16]:
-                for passes in [10, 50]:
-                    self._n_passes = passes
-                    env = copy.deepcopy(model_env)
-                    env.env.scrambleSize = steps
-                    env.env.step_limit = steps + 5
-
-                    episode = yield from self.solve(env, epoch, dummy=True)
-                    info['mcts({0}) shuffles({1})'.format(passes, steps)] = int(episode.solved)
-
-            self._n_passes = model_passes
+    def add_metrics(self, info, env, epoch):
+        if False:
+            yield None
 
 
 def td_backup(node, action, value, gamma):

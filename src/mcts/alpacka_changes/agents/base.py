@@ -182,7 +182,7 @@ class OnlineAgent(Agent):
         del episodes
         return {}
 
-    def solve(self, env, epoch=None, init_state=None, time_limit=None):
+    def solve(self, env, epoch=None, init_state=None, time_limit=None, dummy=False):
         """Solves a given environment using OnlineAgent.act().
 
         Args:
@@ -244,7 +244,7 @@ class OnlineAgent(Agent):
             places.add(tuple(next_observation.flatten()))
 
             transitions.append(data.Transition(
-                observation=full_observation,
+                observation=full_observation['observation'],
                 action=action,
                 reward=reward,
                 done=done,
@@ -263,6 +263,8 @@ class OnlineAgent(Agent):
         transition_batch = data.nested_stack(transitions)
 
         info = {'move_diversity': len(places)}
+        if not dummy:
+            yield from self.add_metrics(info, env, epoch)
         # neptune_logger('move diversity', len(places))
         # sys.exit(0)
         return data.Episode(

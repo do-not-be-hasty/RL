@@ -6,7 +6,6 @@ import gin
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import backend as K
 
 from alpacka import data
 from alpacka.networks import core
@@ -22,7 +21,7 @@ def _make_inputs(input_signature):
         Pytree of tf.keras.Input layers.
     """
     def init_layer(signature):
-        return keras.Input(shape=signature.shape, dtype='float32')
+        return keras.Input(shape=signature.shape, dtype=signature.dtype)
     return data.nested_map(init_layer, input_signature)
 
 
@@ -63,24 +62,6 @@ def mlp(network_signature, hidden_sizes=(32,), activation='relu',
 
 
 @gin.configurable
-def mlp_masked(network_signature, hidden_sizes=(32,), activation='relu',
-        output_activation=None):
-    """Simple multilayer perceptron."""
-    observation_input = keras.Input(shape=network_signature.input.shape)
-    mask = keras.Input(shape=network_signature.output.shape)
-
-    x = keras.layers.Flatten()(observation_input)
-    for h in hidden_sizes:
-        x = keras.layers.Dense(h, activation=activation)(x)
-
-    (num_actions,) = network_signature.output.shape
-    action_values = keras.layers.Dense(num_actions, activation=output_activation)(x)
-    action_values = keras.layers.Multiply()([action_values, mask])
-
-    return keras.Model(inputs=[observation_input, mask], outputs=action_values)
-
-
-@gin.configurable
 def convnet_mnist(
     network_signature,
     n_conv_layers=5,
@@ -88,6 +69,7 @@ def convnet_mnist(
     d_ff=128,
     activation='relu',
     output_activation=None,
+    global_average_pooling=False,
 ):
     """Simple convolutional network."""
     inputs = _make_inputs(network_signature.input)
@@ -97,6 +79,8 @@ def convnet_mnist(
         x = keras.layers.Conv2D(
             d_conv, kernel_size=(3, 3), padding='same', activation=activation
         )(x)
+    if global_average_pooling:
+        x = keras.layers.GlobalAveragePooling2D()(x)
     x = keras.layers.Flatten()(x)
     x = keras.layers.Dense(d_ff, activation=activation)(x)
 
@@ -144,7 +128,6 @@ class KerasNetwork(core.TrainableNetwork):
             metrics=metrics or [],
             **compile_kwargs
         )
-        print(self._model.summary())
 
         self.train_callbacks = train_callbacks or []
 
@@ -164,7 +147,7 @@ class KerasNetwork(core.TrainableNetwork):
                     keras.regularizers.l2(weight_decay), layer.kernel
                 ))
 
-    def train(self, data):
+    def train(self, data_stream):
         """Performs one epoch of training on data prepared by the Trainer.
 
         Args:
@@ -181,27 +164,15 @@ class KerasNetwork(core.TrainableNetwork):
         def shapes(tensors):
             return data.nested_map(lambda x: x.shape, tensors)
 
-        # print(dtypes((self._model.input, self._model.output)))
-        # print(shapes((self._model.input, self._model.output)))
-
-        # dataset = tf.data.Dataset.from_generator(
-        #     generator=data_stream,
-        #     output_types=dtypes((self._model.input, self._model.output)),
-        #     output_shapes=shapes((self._model.input, self._model.output)),
-        #     # output_types=({'input_1':tf.float32, 'input_2':tf.float32}, tf.float32),
-        #     # output_shapes=({'input_1':(None, 6, 3, 3, 12), 'input_2':(None, 12)}, (None,)),
-        # )
+        dataset = tf.data.Dataset.from_generator(
+            generator=data_stream,
+            output_types=dtypes((self._model.input, self._model.output)),
+            output_shapes=shapes((self._model.input, self._model.output)),
+        )
 
         # WA for bug: https://github.com/tensorflow/tensorflow/issues/32912
-        # print(data[0][0].shape, data[0][1].shape, data[1].shape)
-        # print(data[0][0], data[0][1], data[1])
-
-        # print(self._model.summary())
-        # print(self._model.evaluate(data[0]))
-        # print(self._model.fit)
-
         history = self._model.fit(
-            x=data[0], y=data[1], epochs=1, verbose=0,# callbacks=self.train_callbacks
+            dataset, epochs=1, verbose=0, callbacks=self.train_callbacks
         )
         # history contains epoch-indexed sequences. We run only one epoch, so
         # we take the only element.
@@ -217,8 +188,6 @@ class KerasNetwork(core.TrainableNetwork):
             Agent-dependent: Network predictions.
         """
 
-        #print("inputs", inputs)
-        # print("inputs")
         return data.nested_map(
             lambda x: x, self._model.predict_on_batch(inputs)
         )

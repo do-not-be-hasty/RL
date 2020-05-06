@@ -13,7 +13,7 @@ TestGoalRubikEnv.shuffles = 50
 # ==============================================================================
 KerasNetwork.loss = ('mean_squared_error')
 KerasNetwork.metrics = ['mse']
-KerasNetwork.model_fn = @alpacka.networks.keras.mlp_masked
+KerasNetwork.model_fn = @alpacka.networks.keras.mlp
 KerasNetwork.optimizer = 'adam'
 KerasNetwork.weight_decay = 0.0
 KerasNetwork.train_callbacks = None
@@ -52,9 +52,9 @@ TestDeterministicMCTSAgent.value_accumulator_class = @alpacka.agents.determinist
 
 # Parameters for mlp:
 # ==============================================================================
-mlp_masked.activation = 'relu'
-mlp_masked.hidden_sizes = (1024, 1024)
-mlp_masked.output_activation = (None)
+mlp.activation = 'relu'
+mlp.hidden_sizes = (1024, 1024)
+mlp.output_activation = (None)
 
 # Parameters for puct_exploration_bonus:
 # ==============================================================================
@@ -78,8 +78,9 @@ Runner.n_envs = 1
 Runner.episode_time_limit = 100
 Runner.n_epochs = None
 Runner.n_precollect_epochs = 0
-Runner.network_class = @mcts_test.DqnInternalNetwork
-Runner.trainer_class = @alpacka.trainers.DqnTrainer
+Runner.network_class = @alpacka.networks.KerasNetwork
+Runner.trainer_class = @alpacka.trainers.SupervisedTrainer
+
 
 # Parameters for Trainer:
 # ==============================================================================
