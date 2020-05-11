@@ -68,6 +68,6 @@ ssh-add
 
 echo "Send job to mrunner"
 cd ${SRC_DIR}
-mrunner --config /tmp/mrunner_config.yaml --context prometheus_cpu run project_conf.py
+mrunner --config /tmp/mrunner_config.yaml --context eagle_cpu run project_conf.py
 
 deactivate

@@ -18,19 +18,17 @@
      venv: /net/people/<username>/RL/py36
 
    eagle_cpu:
-     account: <grantname>
+     account: plgplanningrl2
      backend_type: slurm
      cmd_type: sbatch
-     modules_to_load:
-     partition: plgrid-gpu
-     requirements_file: neptune_resources/requirements_remote.txt
+     partition: standard
      time: 4300
-     cpu: 1
-     gpu: 1
+     cpu: 12
      mem: 25G
+     nodes: 1
+     singularity_container: /home/plgrid/plgmizaw/singularity/development
      slurm_url: <username>@eagle.man.poznan.pl
-     storage_dir: /home/plgrid/<username>
-     venv: /net/people/<username>/RL/py36
+     storage_dir: /tmp/lustre/<username>
 
    prometheus_cpu_mpi:
      account: <grantname>
@@ -50,4 +48,4 @@
      storage_dir: /net/archive/groups/plggluna/<username>
      venv: /net/people/<username>/RL/py36
 
- current_context: prometheus_cpu
+ current_context: eagle_cpu

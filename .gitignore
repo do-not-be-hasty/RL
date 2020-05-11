@@ -6,3 +6,4 @@ py35
 .idea 
 trash
 .neptune
+scripts/export_api_token.sh
