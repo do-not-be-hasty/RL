@@ -6,8 +6,8 @@ from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100,
-                 sampling_cut=-1, use_sampling_weights=False):
+    def __init__(self, size, gamma, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100,
+                 sampling_cut=-1, use_sampling_weights=False, multistep=1):
         """
         Create Replay buffer.
 
@@ -25,6 +25,8 @@ class ReplayBuffer(object):
         self._sampling_cut = sampling_cut
         self._distance_weights = []
         self._use_sampling_weights = use_sampling_weights
+        self._multistep = multistep
+        self._gamma = gamma ** (1. / self._multistep)
 
     def __len__(self):
         return len(self._storage)
@@ -58,12 +60,34 @@ class ReplayBuffer(object):
         if len(self._distance_weights) < len(episode) + 1:
             self._distance_weights += [0.] * (len(episode) + 1 - len(self._distance_weights))
 
-        for d in episode:
-            data = d + (ep_range,)
+        for idx in range(len(episode)):
+            next_idx = idx + self._multistep - 1
+            if next_idx >= len(episode):
+                next_idx = len(episode) - 1
+            data = episode[idx]
+            final_data = episode[next_idx]
+            (full_obs, action, _, _, _) = data
+            (_, _, _, new_obs, done) = final_data
+            reward = 0.
+            for i in range(next_idx - idx + 1):
+                (_, _, r, _, _) = episode[next_idx - i]
+                reward = reward * self._gamma + r
+
+            buffer_data = (full_obs, action, reward, new_obs, done, ep_range, next_idx - idx + 1)
+
+            # nexti = i + 1 if i + 1 < len(episode) else i
+            # d = episode[i]
+            # next_d = episode[nexti]
+            # (full_obs, action, rew, _, _) = d
+            # (_, _, next_rew, new_obs, done) = next_d
+            # if not i == nexti:
+            #     rew = rew + self._gamma * next_rew
+            # buffer_data = (full_obs, action, rew, new_obs, done, ep_range,)
+
             if self._next_idx >= len(self._storage):
-                self._storage.append(data)
+                self._storage.append(buffer_data)
             else:
-                self._storage[self._next_idx] = data
+                self._storage[self._next_idx] = buffer_data
             self._next_idx = (self._next_idx + 1) % self._maxsize
 
     def _encode_sample(self, idxes, has_replaced_goal, batch_size):
@@ -73,7 +97,9 @@ class ReplayBuffer(object):
         for it in range(len(idxes)):
             i = idxes[it]
             data = self._storage[i]
-            obs_t, action, reward, obs_tp1, done, ep_range = data
+            obs_t, action, reward, obs_tp1, done, ep_range, steps = data
+            failed_reward = -(self._gamma ** steps - 1) / (self._gamma - 1)
+            solved_reward = -(self._gamma ** (steps - 1) - 1) / (self._gamma - 1)
             replace_goal = has_replaced_goal[it]
 
             # print(obs_t, action, reward, obs_tp1, done, ep_range)
@@ -82,14 +108,11 @@ class ReplayBuffer(object):
                 obses_t.append(np.array(np.concatenate([obs_t['observation'], goal], axis=-1), copy=False))
                 actions.append(np.array(action, copy=False))
                 if np.array_equal(obs_tp1['achieved_goal'], goal):
-                    rewards.append(0)
+                    rewards.append(solved_reward)
                     dones.append(1)
                 else:
-                    rewards.append(-1)
-                    if true_replay:
-                        dones.append(0)
-                    else:
-                        dones.append(0)
+                    rewards.append(failed_reward)
+                    dones.append(0)
                 obses_tp1.append(np.array(np.concatenate([obs_tp1['observation'], goal], axis=-1), copy=False))
 
                 # print(obses_t[-1], actions[-1], rewards[-1], obses_tp1[-1], dones[-1])
@@ -115,7 +138,7 @@ class ReplayBuffer(object):
                     offset = np.random.randint(0, ep_range - i)
 
             distances.append(offset)
-            _, _, _, new_obs, _, _ = self._storage[(i + offset) % self._maxsize]
+            _, _, _, new_obs, _, _, _ = self._storage[(i + offset) % self._maxsize]
             add_goal = new_obs['achieved_goal']
             push_trans(add_goal)
 
@@ -125,13 +148,13 @@ class ReplayBuffer(object):
         obses_beg, obses_step, obses_fin, dist = [], [], [], []
 
         for i in idxes:
-            obs_1, _, _, obs_s, _, ep_range = self._storage[i]
+            obs_1, _, _, obs_s, _, ep_range, _ = self._storage[i]
 
             if ep_range <= i:
                 ep_range += self._maxsize
 
             d = np.random.randint(0, ep_range - i)
-            _, _, _, obs_2, _, _ = self._storage[(i + d) % self._maxsize]
+            _, _, _, obs_2, _, _, _ = self._storage[(i + d) % self._maxsize]
 
             obses_beg.append(obs_1['observation'])
             obses_step.append(obs_s['observation'])

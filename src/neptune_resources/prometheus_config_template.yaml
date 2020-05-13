@@ -23,7 +23,7 @@
      cmd_type: sbatch
      partition: standard
      time: 4300
-     cpu: 12
+     cpu: 24
      mem: 25G
      nodes: 1
      singularity_container: -B /mnt/lustre/scratch/<username>/mrunner_scratch/rubik:/rubik /home/plgrid/<username>/singularity/development

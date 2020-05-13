@@ -169,7 +169,8 @@ class DQN_HER(OffPolicyRLModel):
                                                         final_p=1.0)
             else:
                 # self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
-                self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight, use_sampling_weights=False)
+                self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight, use_sampling_weights=False, gamma=self.gamma,
+                                                         multistep=self.multistep)
                 # self.replay_buffer = SimpleReplayBuffer(self.buffer_size)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.

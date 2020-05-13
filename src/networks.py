@@ -252,20 +252,20 @@ def arch_batchnorm_regularization(processed_obs, act_fun, n_actions, dueling):
     return q_out
 
 
-def arch_color_embedding(processed_obs, act_fun, n_actions, dueling):
+def arch_color_embedding(processed_obs, act_fun, n_actions, dueling, layers_width=1024):
     with tf.variable_scope("action_value") as scope:
         labs = [tf_layers.layer_norm(tf.layers.flatten(tf.concat([processed_obs[:, :, :, :, i], processed_obs[:, :, :, :, i+6]], axis=-1)), center=True, scale=True) for i in range(6)]
-        features = [tf_layers.fully_connected(labs[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_1') for i in
+        features = [tf_layers.fully_connected(labs[i], num_outputs=layers_width, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_1') for i in
                     range(6)]
         features = [act_fun(feature) for feature in features]
-        features = [tf_layers.fully_connected(features[i], num_outputs=1024, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_2') for i in range(6)]
+        features = [tf_layers.fully_connected(features[i], num_outputs=layers_width, activation_fn=None, reuse=(None if i == 0 else True), scope='colour_embedding_2') for i in range(6)]
         # features = [tf_layers.layer_norm(feature) for feature in features]
 
         action_out = features[0] + features[1] + features[2] + features[3] + features[4] + features[5]
 
         action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
         action_out = act_fun(action_out)
-        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.fully_connected(action_out, num_outputs=layers_width, activation_fn=None)
         action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
         action_out = act_fun(action_out)
 
@@ -283,7 +283,7 @@ def arch_color_embedding(processed_obs, act_fun, n_actions, dueling):
 
             state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
             state_out = act_fun(state_out)
-            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.fully_connected(state_out, num_outputs=layers_width, activation_fn=None)
             state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
             state_out = act_fun(state_out)
 

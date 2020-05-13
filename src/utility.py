@@ -201,9 +201,9 @@ def callback(_locals, _globals):
         log_rubik_curriculum_eval([5, 7, 10], _locals['self'], _locals['self'].env, neval=30, with_diversity=True)
         log_rubik_curriculum_eval([3, 8, 9, 11, 13, 16], _locals['self'], _locals['self'].env, neval=30)
         # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
-        log_rubik_ultimate_eval([7], _locals['self'], _locals['self'].env)
+        log_rubik_ultimate_eval([7], _locals['self'], _locals['self'].env, neval=30)
 
-        log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 50])
+        log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
         log_rubik_ultimate_infty(_locals['self'], [7, 50])
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
