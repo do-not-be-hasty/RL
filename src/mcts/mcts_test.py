@@ -215,6 +215,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._state2node = {}
         self._model = None
         self._root = None
+        self._step = 0
 
     def _children_of_state(self, parent_state):
         old_state = self._model.clone_state()
@@ -333,13 +334,13 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         ]
 
     # Select the child with the highest score
-    def _select_child(self, node, states_to_avoid):
+    def _select_child(self, node, states_to_avoid, explore=False):
         values_and_actions = self._rate_children(node, states_to_avoid)
         if not values_and_actions:
             return None, None
         (max_value, _) = max(values_and_actions)
         argmax = [
-            action for value, action in values_and_actions if value == max_value
+            action for value, action in values_and_actions if (explore or (value == max_value))
         ]
         # INFO: here can be sampling
         if len(argmax) > 1:  # PM: This works faster
@@ -362,6 +363,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._root = TreeNode(graph_node)
 
     def act(self, observation):
+        self._step += 1
         # perform MCTS passes.
         # each pass = tree traversal + leaf evaluation + backprop
         for _ in range(self._n_passes):
@@ -370,8 +372,9 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         # INFO: below line guarantees that we do not perform one-step loop (may
         # be considered slight hack)
         states_to_avoid = {self._root.state} if self._avoid_loops else set()
+        explore = (np.random.random() < max((1e5 - self._step) / 1e5, 0.1))
         # INFO: possible sampling for exploration
-        self._root, action = self._select_child(self._root, states_to_avoid)
+        self._root, action = self._select_child(self._root, states_to_avoid, explore)
 
         return (action, info)
 
@@ -387,7 +390,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
             for _ in range(1):
                 offset = np.random.randint(0, len(transitions)-i)
                 value = discounted_distance(offset)
-                targeted_obs = np.concatenate([transitions[i].observation, transitions[i+offset].observation], axis=-1)
+                targeted_obs = np.concatenate([transitions[i].observation['observation'], transitions[i+offset].observation['observation']], axis=-1)
                 postprocessed_transitions.append(
                     transitions[i]._replace(observation=targeted_obs, agent_info={'value': value}))
 
@@ -407,9 +410,39 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
             output=data.TensorSignature(shape=(1,)),
         )
 
-    def add_metrics(self, info, env, epoch):
-        if False:
-            yield None
+    @staticmethod
+    def compute_metrics(episodes):
+        info = dict()
+        count = dict()
+
+        for episode in episodes:
+            for (key, value) in episode.info.items():
+                if key not in info:
+                    info[key] = 0.
+                    count[key] = 0
+                info[key] += value
+                count[key] += 1
+
+        for (key, val) in count.items():
+            info[key] /= val
+
+        return info
+
+    def add_metrics(self, info, model_env, epoch):
+        if epoch % 40 == 39:
+            model_passes = self._n_passes
+
+            for steps in [7, 10, 13, 16]:
+                for passes in [10, 50]:
+                    self._n_passes = passes
+                    env = copy.deepcopy(model_env)
+                    env.env.scrambleSize = steps
+                    env.env.step_limit = steps + 5
+
+                    episode = yield from self.solve(env, epoch, dummy=True)
+                    info['mcts({0}) shuffles({1})'.format(passes, steps)] = int(episode.solved)
+
+            self._n_passes = model_passes
 
 
 def td_backup(node, action, value, gamma):
