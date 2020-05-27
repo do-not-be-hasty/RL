@@ -204,6 +204,9 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         avoid_loops=True,
         value_traits_class=ScalarValueTraits,
         value_accumulator_class=ScalarValueAccumulator,
+        exploration_length=1e5,
+        exploration_final_eps=0.1,
+        metrics_frequency=40,
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -217,6 +220,9 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._model = None
         self._root = None
         self._step = 0
+        self._exploration_length = exploration_length
+        self._exploration_final_eps = exploration_final_eps
+        self._metrics_frequency = metrics_frequency
 
     def _children_of_state(self, parent_state):
         # print("MCTS ch")
@@ -344,8 +350,9 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         accumulator = parent.children[action].value_acc
         value = accumulator.index()
         # TODO sprawdzić działanie przy różnych konfiguracjach selekcji (0: max value, może być też np. children.visits)
-        ucb = 0 if selection else np.sqrt(np.log(parent.visits) / parent.children[action].visits)
-        return td_backup(parent, action, value, self._gamma) + ucb
+        # ucb = 0 if selection else np.sqrt(np.log(parent.visits) / parent.children[action].visits)
+        # return td_backup(parent, action, value, self._gamma) + ucb
+        return td_backup(parent, action, value, self._gamma)
 
     def _rate_children(self, node, states_to_avoid, selection=False):
         # print("MCTS rate")
@@ -404,7 +411,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         #states_to_avoid = {self._root.state} if self._avoid_loops else set()
         states_to_avoid = set()
         # INFO: possible sampling for exploration
-        explore = (np.random.random() < max((1e5 - self._step) / 1e5, 0.1))
+        explore = (np.random.random() < max((self._exploration_length - self._step) / 1e5, self._exploration_final_eps))
         # print('explore', explore, self._step)
         self._root, action = self._select_child(self._root, states_to_avoid, explore, selection=True)
 
@@ -459,18 +466,24 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         return info
 
     def add_metrics(self, info, model_env, epoch):
-        if epoch % 40 == 0:
+        if epoch % self._metrics_frequency == 0:
             model_passes = self._n_passes
 
-            for steps in [7, 10, 13, 16]:
-                for passes in [10, 50]:
+            eval_rate = 10
+
+            for steps in [7, 10, 11, 12, 13, 14, 15, 16]:
+                for passes in [10, 200]:
                     self._n_passes = passes
                     env = copy.deepcopy(model_env)
                     env.env.scrambleSize = steps
                     env.env.step_limit = steps + 5
 
-                    episode = yield from self.solve(env, epoch, dummy=True)
-                    info['mcts({0}) shuffles({1})'.format(passes, steps)] = int(episode.solved)
+                    solved_acc = 0.
+                    for _ in range(eval_rate):
+                        episode = yield from self.solve(env, epoch, dummy=True)
+                        solved_acc += int(episode.solved)
+
+                    info['mcts({0}) shuffles({1})'.format(passes, steps)] = solved_acc / eval_rate
 
             self._n_passes = model_passes
 

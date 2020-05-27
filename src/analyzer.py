@@ -46,7 +46,9 @@ env = make_env_GoalRubik(step_limit=15)
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/bitflipper_fakeonly_2019-12-02-15:53:57_10000.pkl", env)
 
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/colour_emb__2020-02-09-09:47:20_100000.pkl", env) # RUB-134
-model = HER.load("/home/michal/Projekty/RL/RL/resources/colour_emb_longer_ep__2020-02-21-15:20:27_30000.pkl", env) # RUB-156
+# model = HER.load("/home/michal/Projekty/RL/RL/resources/colour_emb_longer_ep__2020-02-21-15:20:27_30000.pkl", env) # RUB-156
+
+model = HER.load("/home/michal/Projekty/RL/RL/resources/network_2k_2020-05-21-09:02:01_40000.pkl", env) # RUB-309
 
 def simple_eval_Rubik(env):
     for i in range(1, 10):

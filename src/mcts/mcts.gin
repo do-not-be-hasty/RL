@@ -1,5 +1,6 @@
 import mcts.mcts_test
 import mcts.mcts_rubik_env
+import mcts.mcts_checkpoint
 
 # Parameters for TestRubikEnv:
 # ==============================================================================
@@ -38,6 +39,8 @@ DqnInternalNetwork.env_class = @mcts_rubik_env.TestGoalRubikEnv
 #DqnInternalNetwork.env_class = @mcts_rubik_env.TestGoalBitFlipper
 
 
+
+
 # Parameters for LocalBatchStepper:
 # ==============================================================================
 # None.
@@ -49,6 +52,11 @@ TestDeterministicMCTSAgent.gamma = 0.98
 TestDeterministicMCTSAgent.n_passes = 10
 TestDeterministicMCTSAgent.value_traits_class = @alpacka.agents.deterministic_mcts.ScalarValueTraits
 TestDeterministicMCTSAgent.value_accumulator_class = @alpacka.agents.deterministic_mcts.ScalarValueAccumulator
+
+TestDeterministicMCTSAgent.exploration_length = 0     # ALERT for checkpoints evaluation only
+TestDeterministicMCTSAgent.exploration_final_eps = 0  # ALERT for checkpoints evaluation only
+TestDeterministicMCTSAgent.metrics_frequency = 1      # ALERT for checkpoints evaluation only
+
 
 # Parameters for mlp:
 # ==============================================================================
@@ -78,7 +86,7 @@ Runner.n_envs = 1
 Runner.episode_time_limit = 100
 Runner.n_epochs = None
 Runner.n_precollect_epochs = 0
-Runner.network_class = @mcts_test.DqnInternalNetwork
+Runner.network_class = @mcts_checkpoint.MctsCheckpoint
 Runner.trainer_class = @alpacka.trainers.DqnTrainer
 
 # Parameters for Trainer:
