@@ -117,6 +117,36 @@ class ScalarValueAccumulator(ValueAccumulator):
         return self._count
 
 
+@gin.configurable
+class MaxValueAccumulator(ValueAccumulator):
+    """Scalar value accumulator.
+
+    Calculates a mean over accumulated values and returns it as the
+    backpropagated value, node index and target for value network training.
+    """
+
+    def __init__(self, value):
+        self._value = 0.0
+        self._count = 0
+        super().__init__(value)
+
+    def add(self, value):
+        self._value = max(self._value, value)
+        self._count += 1
+
+    def get(self):
+        return self._value
+
+    def index(self):
+        return self.get()
+
+    def target(self):
+        return self.get()
+
+    def count(self):
+        return self._count
+
+
 class GraphNode:
     """Graph node, corresponding 1-1 to an environment state.
 
@@ -207,6 +237,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         exploration_length=1e5,
         exploration_final_eps=0.1,
         metrics_frequency=40,
+        cumulate=False,
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -223,6 +254,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._exploration_length = exploration_length
         self._exploration_final_eps = exploration_final_eps
         self._metrics_frequency = metrics_frequency
+        self._metrics_table = dict()
+        self._cumulate = cumulate
 
     def _children_of_state(self, parent_state):
         # print("MCTS ch")
@@ -353,6 +386,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         # ucb = 0 if selection else np.sqrt(np.log(parent.visits) / parent.children[action].visits)
         # return td_backup(parent, action, value, self._gamma) + ucb
         return td_backup(parent, action, value, self._gamma)
+        # return td_backup(parent, action, value, self._gamma) if selection else 10.  # simple BFS
 
     def _rate_children(self, node, states_to_avoid, selection=False):
         # print("MCTS rate")
@@ -471,7 +505,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
 
             eval_rate = 10
 
-            for steps in [7, 10, 11, 12, 13, 14, 15, 16]:
+            for steps in [10, 13, 16, 19]:
                 for passes in [10, 200]:
                     self._n_passes = passes
                     env = copy.deepcopy(model_env)
@@ -483,7 +517,16 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
                         episode = yield from self.solve(env, epoch, dummy=True)
                         solved_acc += int(episode.solved)
 
-                    info['mcts({0}) shuffles({1})'.format(passes, steps)] = solved_acc / eval_rate
+                    metric_name = 'mcts({0}) shuffles({1})'.format(passes, steps)
+
+                    if self._cumulate:
+                        (solved_total, count) = self._metrics_table[metric_name] if metric_name in self._metrics_table.keys() else (0, 0)
+                        solved_total += solved_acc
+                        count += eval_rate
+                        info[metric_name] = solved_total / count
+                        self._metrics_table[metric_name] = (solved_total, count)
+                    else:
+                        info[metric_name] = solved_acc / eval_rate
 
             self._n_passes = model_passes
 

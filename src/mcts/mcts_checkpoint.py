@@ -19,15 +19,51 @@ class MctsCheckpoint(core.TrainableNetwork):
             shuffles=100,
         )
         self.network_signature = network_signature
-        # self.model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/network_2k_2020-05-21-09:02:01_40000.pkl', env)
-        self.model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/network_2k_2020-05-21-09:02:01_40000.pkl', self.env)
+
+        # NOTE 2k models
+        # self.model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/network_2k_2020-05-21-09:02:01_40000.pkl', self.env)
+        # self.model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/network_2k_2020-05-21-09:02:01_40000.pkl', self.env)
+
+        # NOTE 1k models
+        self.model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/checkpoints_test_2020-05-30-06:27:16_120000.pkl', self.env)
+        # self.model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-05-30-06:27:16_120000.pkl', self.env)
 
     def setup_model(self):
         self.model.setup_model()
 
     @property
     def params(self):
-        return None
+        return (
+            self.network_signature,
+            self.model.verbose,
+            self.model.observation_space,
+            self.model.action_space,
+            self.model.policy,
+            self.model.learning_rate,
+            self.model.gamma,
+            self.model.param_noise,
+            self.model.loop_breaking,
+            self.model.prioritized_replay,
+            self.model.learning_starts,
+            self.model.train_freq,
+            self.model.batch_size,
+            self.model.prioritized_replay_eps,
+            self.model.target_network_update_freq,
+
+            self.model.beta_schedule,
+
+            self.model.sess,  # disable for ray
+            self.model.graph,  # disable for ray
+            self.model.act,  # disable for ray
+            self.model._train_step,  # disable for ray
+            self.model.update_target,  # disable for ray
+            self.model.step_model,  # disable for ray
+            self.model.summary,  # disable for ray
+            self.model.proba_step,  # disable for ray
+            self.model.params,  # disable for ray
+
+            self.model.env,
+        )
 
     @params.setter
     def params(self, new_params):

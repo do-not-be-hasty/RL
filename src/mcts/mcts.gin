@@ -51,11 +51,14 @@ TestDeterministicMCTSAgent.avoid_loops = True
 TestDeterministicMCTSAgent.gamma = 0.98
 TestDeterministicMCTSAgent.n_passes = 10
 TestDeterministicMCTSAgent.value_traits_class = @alpacka.agents.deterministic_mcts.ScalarValueTraits
+
 TestDeterministicMCTSAgent.value_accumulator_class = @alpacka.agents.deterministic_mcts.ScalarValueAccumulator
+#TestDeterministicMCTSAgent.value_accumulator_class = @mcts_test.MaxValueAccumulator
 
 TestDeterministicMCTSAgent.exploration_length = 0     # ALERT for checkpoints evaluation only
 TestDeterministicMCTSAgent.exploration_final_eps = 0  # ALERT for checkpoints evaluation only
 TestDeterministicMCTSAgent.metrics_frequency = 1      # ALERT for checkpoints evaluation only
+TestDeterministicMCTSAgent.cumulate = True            # ALERT for checkpoints evaluation only
 
 
 # Parameters for mlp:
@@ -83,7 +86,7 @@ Runner.env_class = @mcts_rubik_env.TestGoalRubikEnv
 #Runner.env_class = @mcts_rubik_env.TestSimpleRubikEnv
 
 Runner.n_envs = 1
-Runner.episode_time_limit = 100
+Runner.episode_time_limit = 10000
 Runner.n_epochs = None
 Runner.n_precollect_epochs = 0
 Runner.network_class = @mcts_checkpoint.MctsCheckpoint
