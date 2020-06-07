@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
-from mrunner.helpers.client_helper import logger as neptune_logger
+from mrunner.helpers.client_helper import logger as raw_neptune_logger
 
 
 def resources_dir():
@@ -20,6 +20,12 @@ def resources_dir():
 
 def get_cur_time_str():
     return datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+
+
+def neptune_logger(message, value, use_stdout=True):
+    raw_neptune_logger(message, value)
+    if use_stdout:
+        print(message.replace(' ', ''), value)
 
 
 def timeit(method):

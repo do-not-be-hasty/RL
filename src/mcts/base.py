@@ -2,10 +2,13 @@
 
 import asyncio
 import numpy as np
+import sys
 
 from alpacka import data
 from alpacka import envs
 from alpacka import utils
+
+from mrunner.helpers.client_helper import logger as neptune_logger
 
 
 class Agent:
@@ -179,7 +182,7 @@ class OnlineAgent(Agent):
         del episodes
         return {}
 
-    def solve(self, env, epoch=None, init_state=None, time_limit=None):
+    def solve(self, env, epoch=None, init_state=None, time_limit=None, dummy=False, hard=False):
         """Solves a given environment using OnlineAgent.act().
 
         Args:
@@ -218,24 +221,40 @@ class OnlineAgent(Agent):
         else:
             # Model-based case...
             observation = env.restore_state(init_state)
+        # print('init observation', observation)
 
         yield from self.reset(model_env, observation)
         #for x in self.reset(model_env, observation):
             ##print(x)
             #yield np.concatenate([x['observation'], x['desired_goal']], axis=-1)
-        
+
         transitions = []
         done = False
         info = {}
+        places = {tuple(observation.flatten())}
+        shuffler = 0
+
         while not done:
             # Forward network prediction requests to BatchStepper.
-            #print("solving...")
+            # print("solving...")
             #print(observation)
-            (action, agent_info) = yield from self.act(observation)
-            #print("has action!")
+            if hard and shuffler > 0:
+                action = env.action_space.sample()
+                agent_info = {'node': self._root}
+                shuffler -= 1
+                if len(places) > 1e3:
+                    places = {}
+            else:
+                (action, agent_info) = yield from self.act(observation)
+            # print("has action!")
             # TODO
             (full_next_observation, reward, done, info) = env.step(action)
             next_observation = np.concatenate([full_next_observation['observation'], full_next_observation['desired_goal']], axis=-1)
+
+            if hard and tuple(next_observation.flatten()) in places and shuffler == 0:
+                print('shuffle')
+                shuffler = 10
+            places.add(tuple(next_observation.flatten()))
 
             transitions.append(data.Transition(
                 observation=full_observation,
@@ -255,9 +274,16 @@ class OnlineAgent(Agent):
         truncated = (info['TimeLimit.truncated']
                      if 'TimeLimit.truncated' in info else None)
         transition_batch = data.nested_stack(transitions)
+
+        info = {'move_diversity': len(places)}
+        if not dummy:
+            yield from self.add_metrics(info, env, epoch)
+        # neptune_logger('move diversity', len(places))
+        # sys.exit(0)
         return data.Episode(
             transition_batch=transition_batch,
             return_=return_,
             solved=solved,
             truncated=truncated,
+            info=info,
         )

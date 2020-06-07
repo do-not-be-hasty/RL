@@ -2,7 +2,7 @@ from gym_maze import RandomMazeGenerator
 
 from environment_builders import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze, make_env_Sokoban, \
     make_env_GoalSokoban, make_env_Rubik, make_env_GoalRubik
-from utility import callback, evaluate
+from utility import callback, evaluate, hard_eval, neptune_logger
 from models import HER_model, MTR_model, DQN_model, HER_model_conv, restore_HER_model
 
 
@@ -170,8 +170,8 @@ def learn_Rubik_HER():
         shuffles=100,
     )
     model = HER_model(env)
-    # model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/baseline_2020-04-07-05:32:42_80000.pkl', env)
-    # model = restore_HER_model('/net/people/plgmizaw/checkpoints/baseline_2020-04-10-13:02:09_60000', env, learning_rate=3e-4)
+    # model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-05-30-06:27:16_120000.pkl', env)  # eagle
+    # model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/checkpoints_test_2020-05-30-06:27:16_120000.pkl', env)  # local
 
     try:
         model.learn(total_timesteps=120000000,
@@ -180,3 +180,22 @@ def learn_Rubik_HER():
                     )
     except KeyboardInterrupt:
         pass
+
+
+def hard_eval_Rubik_HER():
+    print("Rubik eval, DQN+HER")
+
+    env = make_env_GoalRubik(
+        step_limit=1e3,
+        shuffles=5,
+    )
+    # model = HER_model(env)
+    # model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/baseline_2020-04-07-05:32:42_80000.pkl', env)
+    model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/network_2k_2020-05-21-09:02:01_40000.pkl', env)
+
+    count = 0
+    solved = 0
+    while True:
+        solved += hard_eval(model, env)
+        count += 1
+        neptune_logger('solved', solved/count)

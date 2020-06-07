@@ -87,6 +87,50 @@ def clear_eval(model, env, neval=100, loop_break=False, with_diversity=False):
         return np.mean(scores)
 
 
+def hard_eval(model, env):
+    beg_time = time.time()
+    visited = set()
+    steps = 0
+    obs = env.reset()
+
+    while True:
+        end = False
+        if tuple(obs['observation'].flatten()) in visited:
+            for i in range(10):
+                action = env.action_space.sample()
+                obs, rewards, dones, info = env.step(action)
+                steps += 1
+                if steps % 100 == 0:
+                    visited = set()
+                if dones or rewards >= -1e-5:
+                    end = True
+                    break
+
+        if end:
+            break
+
+        action, _states = model.predict(np.concatenate((obs['observation'], obs['desired_goal']), axis=-1))
+        visited.add(tuple(obs['observation'].flatten()))
+        steps += 1
+        if steps % 100 == 0:
+            visited = set()
+
+        obs, rewards, dones, info = env.step(action)
+
+        if dones or rewards >= -1e-5:
+            break
+
+    if rewards >= -1e-5:
+        neptune_logger('time', time.time() - beg_time)
+        neptune_logger('steps', steps)
+        return 1
+
+    if dones:
+        print('No solution found')
+        neptune_logger('time', time.time() - beg_time)
+        return 0
+
+
 def rubik_ultimate_eval(model, env, neval=100):
     env = copy.deepcopy(env)
     env.scrambling = True

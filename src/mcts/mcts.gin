@@ -95,7 +95,7 @@ Runner.trainer_class = @alpacka.trainers.DqnTrainer
 # Parameters for Trainer:
 # ==============================================================================
 DqnTrainer.batch_size = 32
-DqnTrainer.n_steps_per_epoch = 100
+DqnTrainer.n_steps_per_epoch = 100000
 DqnTrainer.replay_buffer_capacity = 500000
 DqnTrainer.hindsight = 1000
 

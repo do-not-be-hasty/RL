@@ -2,6 +2,7 @@
 
 # TODO(koz4k): Clean up more, add comments and tests.
 import copy
+import time
 import traceback
 from functools import partial
 
@@ -22,8 +23,8 @@ from stable_baselines.deepq import MlpPolicy as DQN_Policy
 from scipy.special import huber
 
 import networks
+from mcts.utility import neptune_logger
 from networks import CustomPolicy
-
 
 
 class ValueTraits:
@@ -383,9 +384,9 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         accumulator = parent.children[action].value_acc
         value = accumulator.index()
         # TODO sprawdzić działanie przy różnych konfiguracjach selekcji (0: max value, może być też np. children.visits)
-        # ucb = 0 if selection else np.sqrt(np.log(parent.visits) / parent.children[action].visits)
-        # return td_backup(parent, action, value, self._gamma) + ucb
-        return td_backup(parent, action, value, self._gamma)
+        ucb = 0 if selection else np.sqrt(np.log(parent.visits) / parent.children[action].visits)
+        return td_backup(parent, action, value, self._gamma) + ucb
+        # return td_backup(parent, action, value, self._gamma)
         # return td_backup(parent, action, value, self._gamma) if selection else 10.  # simple BFS
 
     def _rate_children(self, node, states_to_avoid, selection=False):
@@ -500,6 +501,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         return info
 
     def add_metrics(self, info, model_env, epoch):
+        # yield from self.hard_eval_run(model_env)
+
         if epoch % self._metrics_frequency == 0:
             model_passes = self._n_passes
 
@@ -529,6 +532,25 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
                         info[metric_name] = solved_acc / eval_rate
 
             self._n_passes = model_passes
+
+    def hard_eval_run(self, env):
+        print('Hard eval started')
+
+        env.env.scrambleSize = 7
+        env.env.step_limit = 1e2
+        self._n_passes = 200
+
+        count = 0
+        solved = 0
+        while True:
+            beg_time = time.time()
+            episode = yield from self.solve(env, count, dummy=True, hard=True)
+            run_time = time.time() - beg_time
+            solved += int(episode.solved)
+            count += 1
+            neptune_logger('solved', solved / count)
+            neptune_logger('solving time', run_time)
+            neptune_logger('steps', 1-episode.return_)
 
 
 def td_backup(node, action, value, gamma):

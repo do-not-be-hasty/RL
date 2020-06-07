@@ -1,6 +1,6 @@
  contexts:
    prometheus_cpu:
-     account: <grantname>
+     account: plgplanningrl2
      backend_type: slurm
      cmd_type: sbatch
      modules_to_load:
