@@ -10,12 +10,13 @@ import gin
 import gym
 import numpy as np
 
-from alpacka import data
+from alpacka import data, metric_logging
 from alpacka.agents import base
 from alpacka.utils import space as space_utils
 from alpacka.networks import core
 
 import tensorflow as tf
+from mrunner.helpers.client_helper import get_configuration
 from stable_baselines import logger, deepq
 from stable_baselines.common import tf_util
 from stable_baselines.a2c.utils import find_trainable_variables
@@ -536,8 +537,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
     def hard_eval_run(self, env):
         print('Hard eval started')
 
-        env.env.scrambleSize = 7
-        env.env.step_limit = 1e2
+        env.env.scrambleSize = 100
+        env.env.step_limit = 1e5
         self._n_passes = 200
 
         count = 0
@@ -548,9 +549,12 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
             run_time = time.time() - beg_time
             solved += int(episode.solved)
             count += 1
-            neptune_logger('solved', solved / count)
-            neptune_logger('solving time', run_time)
-            neptune_logger('steps', 1-episode.return_)
+
+            metric_logging.log_scalar_metrics(
+                'hard_eval',
+                count,
+                {'solved': solved / count, 'solving time': run_time, 'steps': 1 - episode.return_}
+            )
 
 
 def td_backup(node, action, value, gamma):
