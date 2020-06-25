@@ -2,7 +2,7 @@ from gym_maze import RandomMazeGenerator
 
 from environment_builders import make_env_BitFlipper, make_env_GoalBitFlipper, make_env_GoalMaze, make_env_Sokoban, \
     make_env_GoalSokoban, make_env_Rubik, make_env_GoalRubik
-from utility import callback, evaluate, hard_eval, neptune_logger
+from utility import callback, evaluate, hard_eval, neptune_logger, bitflipper_callback
 from models import HER_model, MTR_model, DQN_model, HER_model_conv, restore_HER_model
 
 
@@ -10,12 +10,12 @@ def learn_BitFlipper_HER():
     n = 150
     print("BitFlipper({0}), DQN+HER".format(n))
 
-    env = make_env_GoalBitFlipper(n=n, space_seed=15)
+    env = make_env_GoalBitFlipper(n=n, space_seed=None)
     model = HER_model(env)
 
     try:
         model.learn(total_timesteps=100000 * 16 * n,
-                    callback=callback,
+                    callback=bitflipper_callback,
                     )
     except KeyboardInterrupt:
         pass
@@ -170,7 +170,7 @@ def learn_Rubik_HER():
         shuffles=100,
     )
     model = HER_model(env)
-    # model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-05-30-06:27:16_120000.pkl', env)  # eagle
+    # model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-06-23-15:10:08_120000', env, learning_rate=3e-6, learning_starts=1000)  # eagle
     # model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/checkpoints_test_2020-05-30-06:27:16_120000.pkl', env)  # local
 
     try:

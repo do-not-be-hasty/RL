@@ -35,8 +35,8 @@ def DQN_model(env):
 
 def HER_model(env):
     return HER(
-        # policy=partial(DQN_Policy, layers=[256]),
-        # policy=partial(CustomPolicy, arch_fun=networks.arch_batchnorm),
+        # policy=partial(DQN_Policy, layers=[1024]),
+        # policy=partial(CustomPolicy, arch_fun=networks.arch_batchnorm_shared_features),
         policy=partial(CustomPolicy, arch_fun=networks.arch_color_embedding),
         env=env,
         hindsight=1000,
@@ -52,8 +52,8 @@ def HER_model(env):
         # beta_fraction=0.1,
         # prioritized_replay_beta0=0.4
         # batch_size=128,
-        # model_save_episode_freq=200*100,
-        # model_save_path="/net/people/plgmizaw/checkpoints/baseline_continue",
+        # model_save_episode_freq=200*50,
+        # model_save_path="/home/plgrid/plgmizaw/checkpoints/4k_network",
         # param_noise=True,
     )
 

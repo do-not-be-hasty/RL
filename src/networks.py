@@ -117,16 +117,16 @@ def arch_batchnorm(processed_obs, act_fun, n_actions, dueling):
 def arch_batchnorm_shared_features(processed_obs, act_fun, n_actions, dueling):
     with tf.variable_scope("action_value"):
         extracted_features = tf.layers.flatten(processed_obs)
-        extracted_features = tf_layers.fully_connected(extracted_features, num_outputs=1024, activation_fn=None)
+        extracted_features = tf_layers.fully_connected(extracted_features, num_outputs=4096, activation_fn=None)
         extracted_features = tf_layers.layer_norm(extracted_features, center=True, scale=True)
         extracted_features = act_fun(extracted_features)
-        extracted_features = tf_layers.fully_connected(extracted_features, num_outputs=1024, activation_fn=None)
+        extracted_features = tf_layers.fully_connected(extracted_features, num_outputs=2048, activation_fn=None)
         extracted_features = tf_layers.layer_norm(extracted_features, center=True, scale=True)
         extracted_features = act_fun(extracted_features)
 
         action_out = extracted_features
 
-        action_out = tf_layers.fully_connected(action_out, num_outputs=1024, activation_fn=None)
+        action_out = tf_layers.fully_connected(action_out, num_outputs=512, activation_fn=None)
         action_out = tf_layers.layer_norm(action_out, center=True, scale=True)
         action_out = act_fun(action_out)
 
@@ -136,7 +136,7 @@ def arch_batchnorm_shared_features(processed_obs, act_fun, n_actions, dueling):
         with tf.variable_scope("state_value"):
             state_out = extracted_features
 
-            state_out = tf_layers.fully_connected(state_out, num_outputs=1024, activation_fn=None)
+            state_out = tf_layers.fully_connected(state_out, num_outputs=512, activation_fn=None)
             state_out = tf_layers.layer_norm(state_out, center=True, scale=True)
             state_out = act_fun(state_out)
 

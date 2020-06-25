@@ -502,15 +502,15 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         return info
 
     def add_metrics(self, info, model_env, epoch):
-        # yield from self.hard_eval_run(model_env)
+        yield from self.hard_eval_run(model_env)
 
         if epoch % self._metrics_frequency == 0:
             model_passes = self._n_passes
 
             eval_rate = 10
 
-            for steps in [10, 13, 16, 19]:
-                for passes in [10, 200]:
+            for steps in [13, 16, 19, 22, 25, 30]:
+                for passes in [10, 200, 2000]:
                     self._n_passes = passes
                     env = copy.deepcopy(model_env)
                     env.env.scrambleSize = steps
@@ -538,8 +538,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         print('Hard eval started')
 
         env.env.scrambleSize = 100
-        env.env.step_limit = 1e5
-        self._n_passes = 200
+        env.env.step_limit = 1e3
+        self._n_passes = 2000
 
         count = 0
         solved = 0

@@ -230,6 +230,42 @@ def callback(_locals, _globals):
         neptune_logger('exploration', _locals['update_eps'])
         ep_div = np.array(_locals['episode_div'])
         ep_succ = np.array(_locals['episode_success'])
+        neptune_logger('success move diversity',
+                       np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
+        neptune_logger('failure move diversity',
+                       np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
+        neptune_logger('loss', np.mean(_locals['episode_losses']))
+        # neptune_logger('loss_min', np.min(_locals['episode_losses']))
+        # neptune_logger('loss_max', np.max(_locals['episode_losses']))
+
+        # neptune_logger('shuffles', _locals['self'].env.scrambleSize)
+        # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
+        # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
+
+        log_rubik_curriculum_eval([5, 7, 10], _locals['self'], _locals['self'].env, neval=50, with_diversity=True)
+        log_rubik_curriculum_eval([11, 13, 16], _locals['self'], _locals['self'].env, neval=50)
+        # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
+        log_rubik_ultimate_eval([7, 10], _locals['self'], _locals['self'].env, neval=30)
+
+        log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
+        log_rubik_ultimate_infty(_locals['self'], [7, 50])
+
+        # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
+        # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
+
+    return False
+
+
+def bitflipper_callback(_locals, _globals):
+    interval = 100 if _locals['log_interval'] is None else _locals['log_interval']
+
+    if len(_locals['episode_rewards']) % interval == 0:
+        neptune_logger('success rate', np.mean(_locals['episode_success']))
+        neptune_logger('no exploration success rate',
+                       clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=10))
+        neptune_logger('exploration', _locals['update_eps'])
+        ep_div = np.array(_locals['episode_div'])
+        ep_succ = np.array(_locals['episode_success'])
         # neptune_logger('success move diversity',
         #                np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
         neptune_logger('failure move diversity',
@@ -242,13 +278,13 @@ def callback(_locals, _globals):
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
-        log_rubik_curriculum_eval([5, 7, 10], _locals['self'], _locals['self'].env, neval=30, with_diversity=True)
-        log_rubik_curriculum_eval([3, 8, 9, 11, 13, 16], _locals['self'], _locals['self'].env, neval=30)
+        # log_rubik_curriculum_eval([5, 7, 10], _locals['self'], _locals['self'].env, neval=30, with_diversity=True)
+        # log_rubik_curriculum_eval([3, 8, 9, 11, 13, 16], _locals['self'], _locals['self'].env, neval=30)
         # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
-        log_rubik_ultimate_eval([7], _locals['self'], _locals['self'].env, neval=30)
+        # log_rubik_ultimate_eval([7], _locals['self'], _locals['self'].env, neval=30)
 
-        log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
-        log_rubik_ultimate_infty(_locals['self'], [7, 50])
+        # log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
+        # log_rubik_ultimate_infty(_locals['self'], [7, 50])
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
         # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
