@@ -105,6 +105,47 @@ class ReplayBuffer:
 
 
 class HindsightReplayBuffer:
+    def __init__(self, size):
+        self.storage = []
+        self.max_size = size
+        self.index = 0
+
+    def add(self, episode):
+        episode_range = self.index + len(episode)
+
+        for transition in episode:
+            if len(self.storage) < self.max_size:
+                self.storage.append(transition + (episode_range,))
+            else:
+                self.storage[self.index] = (transition + (episode_range,))
+
+            self.index = (self.index + 1) % self.max_size
+
+    def sample(self, batch_size):
+        observations, actions, nexts, rewards, dones, ranges, steps = [], [], [], [], [], [], []
+
+        for _ in range(batch_size):
+            transition_idx = np.random.randint(0, len(self.storage))
+            observation, action, next, _, _, episode_range = self.storage[transition_idx]
+
+            goal_idx = np.random.randint(transition_idx, episode_range)
+            goal_idx = goal_idx % self.max_size
+            _, _, goal_observation, _, _, _ = self.storage[goal_idx]
+
+            reward = reached_goal_reward(next, goal_observation)
+
+            observations.append(add_goal(observation, goal_observation))
+            actions.append(action)
+            nexts.append(add_goal(next, goal_observation))
+            rewards.append(reward)
+            dones.append(np.array_equal(next, goal_observation))
+            steps.append(1)
+
+        return np.array(observations), np.array(actions), np.array(nexts), np.array(rewards), np.array(dones), \
+               np.array(steps)
+
+
+class MultistepHindsightReplayBuffer:
     def __init__(self, size, gamma, multistep=1):
         self.storage = []
         self.max_size = size
@@ -127,35 +168,40 @@ class HindsightReplayBuffer:
         observations, actions, nexts, rewards, dones, ranges, steps = [], [], [], [], [], [], []
 
         for _ in range(batch_size):
-            step = np.random.randint(0, self.multistep)
-            transition_idx = np.random.randint(0, len(self.storage))
-            observation, action, next, _, _, episode_range = self.storage[transition_idx]
+            while True:
+                step = np.random.randint(0, self.multistep)
+                transition_idx = np.random.randint(0, len(self.storage))
+                observation, action, next, _, _, episode_range = self.storage[transition_idx]
 
-            goal_idx = np.random.randint(transition_idx, episode_range)
-            next_idx = transition_idx + step
-            if next_idx > goal_idx:
-                next_idx = goal_idx
-            goal_idx = goal_idx % self.max_size
-            next_idx = next_idx % self.max_size
-            _, _, goal_observation, _, _, _ = self.storage[goal_idx]
-            _, _, next, _, _, _ = self.storage[next_idx]
+                goal_idx = np.random.randint(transition_idx, episode_range)
+                next_idx = transition_idx + step
+                if next_idx > goal_idx:
+                    next_idx = goal_idx
+                goal_idx = goal_idx % self.max_size
+                next_idx = next_idx % self.max_size
+                _, _, goal_observation, _, _, _ = self.storage[goal_idx]
+                _, _, next, _, _, _ = self.storage[next_idx]
 
-            for i in range(step - 1):
-                _, _, middle, _, _, _ = self.storage[(transition_idx + i) % self.max_size]
-                if np.array_equal(middle, next) or np.array_equal(middle, goal_observation):
-                    next = middle
-                    step = i
-                    break
+                for i in range(step):
+                    _, _, middle, _, _, _ = self.storage[(transition_idx + i) % self.max_size]
+                    if np.array_equal(middle, next) or np.array_equal(middle, goal_observation):
+                        next = middle
+                        step = i
+                        break
 
-            reward = self.rewards_list[step] if np.array_equal(next['achieved_goal'], goal_observation[
-                'achieved_goal']) else self.rewards_list[step + 1]
+                reward = self.rewards_list[step] if np.array_equal(next['achieved_goal'], goal_observation[
+                    'achieved_goal']) else self.rewards_list[step + 1]
 
-            observations.append(add_goal(observation, goal_observation))
-            actions.append(action)
-            nexts.append(add_goal(next, goal_observation))
-            rewards.append(reward)
-            dones.append(np.array_equal(next, goal_observation))
-            steps.append(step + 1)
+                if np.array_equal(observation['achieved_goal'], next['achieved_goal']):
+                    continue
+
+                observations.append(add_goal(observation, goal_observation))
+                actions.append(action)
+                nexts.append(add_goal(next, goal_observation))
+                rewards.append(reward)
+                dones.append(np.array_equal(next, goal_observation))
+                steps.append(step + 1)
+                break
 
         return np.array(observations), np.array(actions), np.array(nexts), np.array(rewards), np.array(dones), \
                np.array(steps)
@@ -165,11 +211,11 @@ class DQN:
     def __init__(self, env):
         self.network = None
         self.gamma = 0.98
-        self.learning_rate = 3e-5
+        self.learning_rate = 1e-3
         self.batch_size = 32
         self.env = env
         self.replay_buffer = ReplayBuffer(2000000)
-        self.update_target_freq = 500
+        self.update_target_freq = 1
         self.learning_start = 1000
         self.exploration = 0.01
         self.exploration_final_eps = 0.1
@@ -187,7 +233,7 @@ class DQN:
             layer = Flatten()(input)
         else:
             layer = input
-        layer_width = 1024
+        layer_width = 256
         layer = Dense(layer_width)(layer)
         layer = LayerNormalization()(layer)
         layer = Activation('relu')(layer)
@@ -260,7 +306,7 @@ class DQN:
                 episode_diversities.append(len(visited))
                 visited = set()
 
-                if num_episode % 200 == 0:
+                if num_episode % 50 == 0:
                     neptune_logger('episodes', num_episode)
                     neptune_logger('reward', np.mean(episode_rewards))
                     neptune_logger('success rate', np.mean(episode_success))
@@ -268,11 +314,11 @@ class DQN:
                     neptune_logger('diversity', np.mean(episode_diversities))
                     neptune_logger('exploration', exploration_plain_eps)
                     neptune_logger('loss', np.mean(losses))
-                    log_rubik_curriculum_eval([1, 2, 3, 4, 5, 7], self, self.env, nevals=30)
-                    log_mean_value(self, self.env, scrambles=1, nevals=30)
-                    log_mean_value(self, self.env, scrambles=2, nevals=30)
-                    log_mean_value(self, self.env, scrambles=3, nevals=30)
-                    log_mean_value(self, self.env, scrambles=100, nevals=30)
+                    # log_rubik_curriculum_eval([1, 2, 3, 4, 5, 7], self, self.env, nevals=30)
+                    # log_mean_value(self, self.env, scrambles=1, nevals=30)
+                    # log_mean_value(self, self.env, scrambles=2, nevals=30)
+                    # log_mean_value(self, self.env, scrambles=3, nevals=30)
+                    # log_mean_value(self, self.env, scrambles=100, nevals=30)
                     episode_rewards = []
                     episode_success = []
                     episode_diversities = []
@@ -340,7 +386,8 @@ class DQN:
 class HER(DQN):
     def __init__(self, env):
         super().__init__(env)
-        self.replay_buffer = HindsightReplayBuffer(2000000, self.gamma, multistep=2)
+        # self.replay_buffer = MultistepHindsightReplayBuffer(2000000, self.gamma, multistep=2)
+        self.replay_buffer = HindsightReplayBuffer(2000000)
 
     def convert_observation(self, observation):
         return np.concatenate([observation['observation'], observation['desired_goal']], axis=-1)
@@ -376,8 +423,8 @@ def main():
     # env = gym.make("CartPole-v1")
     # env = gym.make("MountainCar-v0")
     # env = make_env_BitFlipper(n=5, space_seed=None)
-    # env = make_env_GoalBitFlipper(n=5, space_seed=None)
-    env = make_env_GoalRubik(step_limit=100, shuffles=100)
+    env = make_env_GoalBitFlipper(n=20, space_seed=None)
+    # env = make_env_GoalRubik(step_limit=100, shuffles=100)
     model = HER(env)
     # model.learn(100000 * 16 * 50)
     model.learn(120000000)
