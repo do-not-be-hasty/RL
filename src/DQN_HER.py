@@ -1,3 +1,4 @@
+import pickle
 import random
 import sys
 from functools import partial
@@ -12,7 +13,8 @@ from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, Ten
 from stable_baselines.common.vec_env import VecEnv
 from stable_baselines.common.schedules import LinearSchedule
 from episode_replay_buffer import ReplayBuffer as EpisodeReplayBuffer
-from stable_baselines.deepq import ReplayBuffer as SimpleReplayBuffer, PrioritizedReplayBuffer as SimplePrioritizedReplayBuffer
+from stable_baselines.deepq import ReplayBuffer as SimpleReplayBuffer, \
+    PrioritizedReplayBuffer as SimplePrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 from stable_baselines.a2c.utils import find_trainable_variables, total_episode_reward_logger
 
@@ -55,9 +57,11 @@ class DQN_HER(OffPolicyRLModel):
                  exploration_fraction=0.1,
                  exploration_final_eps=0.02, train_freq=1, batch_size=32, checkpoint_freq=10000, checkpoint_path=None,
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
-                 prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None, beta_fraction=1.0,
+                 prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
+                 beta_fraction=1.0,
                  prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
-                 _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True, multistep=6, boltzmann=False):
+                 _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True,
+                 multistep=6, boltzmann=False):
 
         # TODO: replay_buffer refactoring
         super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
@@ -105,6 +109,7 @@ class DQN_HER(OffPolicyRLModel):
         self.episode_reward = None
         self.steps_made = 0
         self.episodes_completed = 0
+        self.solved_episodes = []
 
         if _init_setup_model:
             self.setup_model()
@@ -155,13 +160,20 @@ class DQN_HER(OffPolicyRLModel):
         print("Saving checkpoint to {0}".format(save_path), file=sys.stderr)
         self.save(save_path)
 
+    def dump_solved_episodes(self):
+        save_path = self.model_save_path + "_solvedEpisodes_" + get_cur_time_str() + "_" + str(self.episodes_completed)
+        print('SOLVED episodes saved to {0}'.format(save_path))
+        with open(save_path, 'wb') as outfile:
+            pickle.dump(self.solved_episodes, outfile)
+
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="DQN"):
         with SetVerbosity(self.verbose), TensorboardWriter(self.graph, self.tensorboard_log, tb_log_name) as writer:
             self._setup_learn(seed)
 
             # Create the replay buffer
             if self.prioritized_replay:
-                self.replay_buffer = SimplePrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
+                self.replay_buffer = SimplePrioritizedReplayBuffer(self.buffer_size,
+                                                                   alpha=self.prioritized_replay_alpha)
                 if self.prioritized_replay_beta_iters is None:
                     prioritized_replay_beta_iters = total_timesteps * self.beta_fraction
                     self.beta_schedule = LinearSchedule(prioritized_replay_beta_iters,
@@ -267,6 +279,7 @@ class DQN_HER(OffPolicyRLModel):
                 if done:
                     if np.array_equal(full_obs['achieved_goal'], full_obs['desired_goal']):
                         episode_success.append(1.)
+                        self.solved_episodes.append(episode_replays)
                     else:
                         episode_success.append(0.)
                     episode_success = episode_success[1:]
@@ -275,6 +288,8 @@ class DQN_HER(OffPolicyRLModel):
                     self.episodes_completed += 1
                     if self.model_save_freq > 0 and self.episodes_completed % self.model_save_freq == 0:
                         self.save_model_checkpoint()
+                    if self.episodes_completed % (200 * 100) == 0:
+                        self.dump_solved_episodes()
 
                     if not isinstance(self.env, VecEnv):
                         full_obs = self.env.reset()
@@ -350,7 +365,6 @@ class DQN_HER(OffPolicyRLModel):
                             if len(loss_accumulator) < dist + 1:
                                 loss_accumulator += [0.] * (dist + 1 - len(loss_accumulator))
                             loss_accumulator[dist] = loss_accumulator[dist] * 0.99 + huber(1., error)
-
 
                         # if step % 1000 == 0:
                         #     print('accumulator', [int(x) for x in loss_accumulator])

@@ -242,13 +242,13 @@ def callback(_locals, _globals):
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
-        log_rubik_curriculum_eval([5, 7, 10], _locals['self'], _locals['self'].env, neval=50, with_diversity=True)
-        log_rubik_curriculum_eval([11, 13, 16], _locals['self'], _locals['self'].env, neval=50)
+        log_rubik_curriculum_eval([5, 7, 10], _locals['self'], _locals['self'].env, neval=10, with_diversity=True)
+        # log_rubik_curriculum_eval([11, 13, 16], _locals['self'], _locals['self'].env, neval=50)
         # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
-        log_rubik_ultimate_eval([7, 10], _locals['self'], _locals['self'].env, neval=30)
+        log_rubik_ultimate_eval([7, 10], _locals['self'], _locals['self'].env, neval=10)
 
-        log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
-        log_rubik_ultimate_infty(_locals['self'], [7, 50])
+        # log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
+        # log_rubik_ultimate_infty(_locals['self'], [7, 50])
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
         # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
