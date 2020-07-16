@@ -9,10 +9,12 @@ if "NEPTUNE_API_TOKEN" not in os.environ or "PROJECT_QUALIFIED_NAME" not in os.e
     print("Their values can be from up.neptune.ml. Click help and then quickstart.")
     exit(1)
 
-tags = [os.environ["PROJECT_TAG"]] if "PROJECT_TAG" in os.environ.keys() else []
+tags = os.environ["PROJECT_TAG"].split(' ') if "PROJECT_TAG" in os.environ.keys() else []
 
 exp = Experiment(name='HER experiment',
                  script='python3 run.py',
+                 # script='python3 dqn_scratch.py',
+                 # script='python3 metric_scratch.py',
                  project=os.environ["PROJECT_QUALIFIED_NAME"],
                  tags=tags,
                  env={"NEPTUNE_API_TOKEN": os.environ["NEPTUNE_API_TOKEN"]},

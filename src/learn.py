@@ -170,13 +170,15 @@ def learn_Rubik_HER():
         shuffles=100,
     )
     # model = HER_model(env)
-    model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-06-27-06:09:57_100000', env, learning_rate=3e-8, learning_starts=100*200*40, model_save_episode_freq=-1, exploration_fraction=0.001)  # eagle
-    # model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/checkpoints_test_2020-05-30-06:27:16_120000.pkl', env)  # local
+    # model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-07-04-05:03:24_100000', env,
+    #                           learning_rate=3e-7, learning_starts=100 * 200 * 4000000, exploration_fraction=0.0001,
+    #                           exploration_final_eps=0.01, model_save_episode_freq=-1)  # solved collector
+    model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-07-14-11:46:46_140000', env, learning_rate=1e-7, learning_starts=100*200*40, exploration_final_eps=0.2)
 
     try:
         model.learn(total_timesteps=120000000,
                     callback=callback,
-                    log_interval=2000,
+                    log_interval=200,
                     )
     except KeyboardInterrupt:
         pass

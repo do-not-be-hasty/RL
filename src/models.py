@@ -51,7 +51,7 @@ def HER_model(env):
         # prioritized_replay=True,
         # beta_fraction=0.1,
         # prioritized_replay_beta0=0.4
-        # batch_size=128,
+        # batch_size=32,
         # model_save_episode_freq=200*50,
         # model_save_path="/home/plgrid/plgmizaw/checkpoints/4k_network",
         # param_noise=True,

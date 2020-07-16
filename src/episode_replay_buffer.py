@@ -1,3 +1,5 @@
+import os
+import pickle
 import random
 import sys
 
@@ -7,7 +9,7 @@ from stable_baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
 
 
 class ReplayBuffer(object):
-    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100, sampling_cut=-1):
+    def __init__(self, size, hindsight=1, hindsight_curriculum=False, sampling_mean_init=2., sampling_mean_growth=0.0003, sampling_mean_max=100, sampling_cut=-1, read_solved=False):
         """
         Create Replay buffer.
 
@@ -24,9 +26,38 @@ class ReplayBuffer(object):
         self._beta_max = sampling_mean_max
         self._sampling_cut = sampling_cut
         self._distance_weights = []
+        self._contains_solved = read_solved
+
+        if read_solved:
+            self.initialize_solved()
 
     def __len__(self):
         return len(self._storage)
+
+    def initialize_solved(self):
+        # iterate over files in checkpoints/ containing solvedEpisodes
+        directory = '/home/plgrid/plgmizaw/checkpoints/'
+        episodes = []
+        fingerprints = set()
+
+        for file in os.listdir(directory):
+            filename = os.fsdecode(file)
+            if 'solvedEpisodes' in filename:
+                with open(directory + filename, 'rb') as input_episodes:
+                    input_data = pickle.load(input_episodes)
+                    for episode in input_data:
+                        fingerprint = tuple(episode[0][0]['observation'].flatten())
+                        if fingerprint in fingerprints:
+                            continue
+                        else:
+                            fingerprints.add(fingerprint)
+                        episodes.append(episode)
+
+        print('TOTAL INITIAL EPISODES:', len(episodes))
+
+        for episode in episodes:
+            self.add(episode)
+
 
     def set_sampling_cut(self, sampling_cut):
         self._sampling_cut = sampling_cut
@@ -75,6 +106,15 @@ class ReplayBuffer(object):
             obs_t, action, reward, obs_tp1, done, ep_range = data
             replace_goal = has_replaced_goal[it]
             # print(obs_t, action, reward, obs_tp1, done, ep_range)
+
+            if self._contains_solved:
+                obses_t.append(np.array(np.concatenate([obs_t['observation'], obs_t['desired_goal']], axis=-1), copy=False))
+                actions.append(np.array(action, copy=False))
+                rewards.append(reward)
+                dones.append(done)
+                obses_tp1.append(np.array(np.concatenate([obs_tp1['observation'], obs_tp1['desired_goal']], axis=-1), copy=False))
+                distances.append(1)
+                continue
 
             def push_trans(goal, true_replay=False):
                 obses_t.append(np.array(np.concatenate([obs_t['observation'], goal], axis=-1), copy=False))

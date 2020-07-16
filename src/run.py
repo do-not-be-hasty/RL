@@ -6,10 +6,12 @@ from supervised import supervised_Rubik, prepare_solutions
 import cProfile
 
 from utility import get_cur_time_str
+import numpy as np
 
 
 def main():
     params = get_configuration(print_diagnostics=True, with_neptune=True)
+    np.random.seed(None)
     # profiler = cProfile.Profile()
     # profiler.enable()
 

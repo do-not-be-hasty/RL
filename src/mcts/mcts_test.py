@@ -156,11 +156,11 @@ class GraphNode:
     """
 
     def __init__(
-        self,
-        value_acc,
-        state=None,
-        terminal=False,
-        solved=False,
+            self,
+            value_acc,
+            state=None,
+            terminal=False,
+            solved=False,
     ):
         self.value_acc = value_acc
         self.rewards = {}
@@ -230,17 +230,17 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
     """
 
     def __init__(
-        self,
-        gamma=0.99,
-        n_passes=10,
-        avoid_loops=True,
-        value_traits_class=ScalarValueTraits,
-        value_accumulator_class=ScalarValueAccumulator,
-        exploration_length=1e5,
-        exploration_final_eps=0.1,
-        metrics_frequency=40,
-        cumulate=False,
-        **kwargs
+            self,
+            gamma=0.99,
+            n_passes=10,
+            avoid_loops=True,
+            value_traits_class=ScalarValueTraits,
+            value_accumulator_class=ScalarValueAccumulator,
+            exploration_length=1e5,
+            exploration_final_eps=0.1,
+            metrics_frequency=40,
+            cumulate=False,
+            **kwargs
     ):
         super().__init__(**kwargs)
         # print("MCTS init")
@@ -364,7 +364,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         # print("expand_fin")
 
         for idx, action in enumerate(
-            space_utils.element_iter(self._action_space)
+                space_utils.element_iter(self._action_space)
         ):
             leaf.rewards[action] = rewards[idx]
             new_node = self._state2node.get(states[idx], None)
@@ -433,21 +433,26 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         self._root = TreeNode(graph_node)
         # print("reset 3")
 
-    def act(self, observation):
+    def act(self, observation, force_explore=False):
         self._step += 1
         # print("MCTS act")
         # perform MCTS passes.
         # each pass = tree traversal + leaf evaluation + backprop
         for _ in range(self._n_passes):
             yield from self.run_mcts_pass()
+            if force_explore:
+                break
         # print("act, mcts_pass-ed")
         info = {'node': self._root}
         # INFO: below line guarantees that we do not perform one-step loop (may
         # be considered slight hack)
-        #states_to_avoid = {self._root.state} if self._avoid_loops else set()
+        # states_to_avoid = {self._root.state} if self._avoid_loops else set()
         states_to_avoid = set()
         # INFO: possible sampling for exploration
-        explore = (np.random.random() < max((self._exploration_length - self._step) / 1e5, self._exploration_final_eps))
+        # explore = (np.random.random() < max((self._exploration_length - self._step) / 1e5, self._exploration_final_eps))
+        explore = (np.random.random() < 0.01)
+        if force_explore:
+            explore = True
         # print('explore', explore, self._step)
         self._root, action = self._select_child(self._root, states_to_avoid, explore, selection=True)
 
@@ -524,7 +529,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
                     metric_name = 'mcts({0}) shuffles({1})'.format(passes, steps)
 
                     if self._cumulate:
-                        (solved_total, count) = self._metrics_table[metric_name] if metric_name in self._metrics_table.keys() else (0, 0)
+                        (solved_total, count) = self._metrics_table[
+                            metric_name] if metric_name in self._metrics_table.keys() else (0, 0)
                         solved_total += solved_acc
                         count += eval_rate
                         info[metric_name] = solved_total / count
@@ -538,8 +544,8 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         print('Hard eval started')
 
         env.env.scrambleSize = 100
-        env.env.step_limit = 1e3
-        self._n_passes = 2000
+        env.env.step_limit = 100
+        self._n_passes = 8000
 
         count = 0
         solved = 0
@@ -562,18 +568,23 @@ def td_backup(node, action, value, gamma):
         return value
     return node.rewards[action] + gamma * value
 
+
 @gin.configurable
 def DqnRubikPolicy():
     return partial(CustomPolicy, arch_fun=networks.arch_color_embedding)
+
 
 @gin.configurable
 def DqnBitFlipperPolicy():
     return partial(DQN_Policy, layers=[512, 512])
 
+
 @gin.configurable
 class DqnInternalNetwork(core.TrainableNetwork):
-    def __init__(self, network_signature, verbose, policy, learning_rate, gamma, param_noise, loop_breaking, prioritized_replay,
-                 learning_starts, train_freq, batch_size, prioritized_replay_eps, target_network_update_freq, env_class):
+    def __init__(self, network_signature, verbose, policy, learning_rate, gamma, param_noise, loop_breaking,
+                 prioritized_replay,
+                 learning_starts, train_freq, batch_size, prioritized_replay_eps, target_network_update_freq,
+                 env_class):
         super().__init__(network_signature)
         self.env = env_class()
 

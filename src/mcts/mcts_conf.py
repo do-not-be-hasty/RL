@@ -1,7 +1,7 @@
 from mrunner.helpers.specification_helper import create_experiments_helper
 import os
 
-tags = [os.environ["PROJECT_TAG"]] if "PROJECT_TAG" in os.environ.keys() else []
+tags = os.environ["PROJECT_TAG"].split(' ') if "PROJECT_TAG" in os.environ.keys() else []
 
 experiments_list = create_experiments_helper(
     experiment_name='her-mcts',

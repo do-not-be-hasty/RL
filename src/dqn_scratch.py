@@ -221,7 +221,7 @@ class DQN:
         self.exploration_final_eps = 0.1
 
         self.step = 0
-        self.metrics = dict()
+        self.maxloss = (0, None)
 
         self.optimizer = None
         self.network = self.setup_network()
@@ -306,7 +306,7 @@ class DQN:
                 episode_diversities.append(len(visited))
                 visited = set()
 
-                if num_episode % 50 == 0:
+                if num_episode % 200 == 0:
                     neptune_logger('episodes', num_episode)
                     neptune_logger('reward', np.mean(episode_rewards))
                     neptune_logger('success rate', np.mean(episode_success))
@@ -323,6 +323,9 @@ class DQN:
                     episode_success = []
                     episode_diversities = []
                     losses = []
+
+                    # print(self.maxloss)
+                    # self.maxloss = (0, None)
 
                 plain_observation = self.env.reset()
                 observation = self.convert_observation(plain_observation)
@@ -373,7 +376,10 @@ class DQN:
         return self.update_weights(observations, targets)
 
     def update_weights(self, data, target):
-        return self.network.train_on_batch(x=data, y=target) * self.env.action_space.n
+        loss = self.network.train_on_batch(x=data, y=target) * self.env.action_space.n * len(data)
+        # if loss > self.maxloss[0]:
+        #     self.maxloss = (loss, data, target)
+        return loss
         # self.network.fit(x=data, y=target, epochs=10, verbose=0)
         # return 0
 
@@ -386,8 +392,8 @@ class DQN:
 class HER(DQN):
     def __init__(self, env):
         super().__init__(env)
-        # self.replay_buffer = MultistepHindsightReplayBuffer(2000000, self.gamma, multistep=2)
-        self.replay_buffer = HindsightReplayBuffer(2000000)
+        self.replay_buffer = MultistepHindsightReplayBuffer(2000000, self.gamma, multistep=2)
+        # self.replay_buffer = HindsightReplayBuffer(2000000)
 
     def convert_observation(self, observation):
         return np.concatenate([observation['observation'], observation['desired_goal']], axis=-1)
@@ -423,7 +429,7 @@ def main():
     # env = gym.make("CartPole-v1")
     # env = gym.make("MountainCar-v0")
     # env = make_env_BitFlipper(n=5, space_seed=None)
-    env = make_env_GoalBitFlipper(n=20, space_seed=None)
+    env = make_env_GoalBitFlipper(n=5, space_seed=None)
     # env = make_env_GoalRubik(step_limit=100, shuffles=100)
     model = HER(env)
     # model.learn(100000 * 16 * 50)

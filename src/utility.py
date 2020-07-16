@@ -167,9 +167,9 @@ def log_rubik_curriculum_eval(shuffles_list, model, env, neval=10, loop_break=Fa
         env.step_limit = 2 * (shuffle + 2)
         success, diversity = clear_eval(model, env, neval, loop_break, with_diversity=True)
 
-        neptune_logger('{0}shuffles {1} success rate'.format('[loop break] ' if loop_break else '', shuffle), success)
+        neptune_logger('shuffles {0} success rate'.format(shuffle), success)
         if with_diversity:
-            neptune_logger('{0}shuffles {1} move diversity'.format('[loop break] ' if loop_break else '', shuffle), diversity)
+            neptune_logger('shuffles {0} move diversity'.format(shuffle), diversity)
 
 
 def log_rubik_ultimate_eval(shuffles_list, model, env, neval=10):
@@ -242,12 +242,13 @@ def callback(_locals, _globals):
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
-        log_rubik_curriculum_eval([5, 7, 10], _locals['self'], _locals['self'].env, neval=10, with_diversity=True)
-        # log_rubik_curriculum_eval([11, 13, 16], _locals['self'], _locals['self'].env, neval=50)
+        log_rubik_curriculum_eval([10], _locals['self'], _locals['self'].env, neval=75, with_diversity=True, loop_break=True)
+        log_rubik_curriculum_eval([13, 16], _locals['self'], _locals['self'].env, neval=40)
         # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
-        log_rubik_ultimate_eval([7, 10], _locals['self'], _locals['self'].env, neval=10)
+        log_rubik_ultimate_eval([7, 10], _locals['self'], _locals['self'].env, neval=20)
 
         # log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
+        # log_rubik_infty(_locals['self'], [1, 5, 7, 10, 50])
         # log_rubik_ultimate_infty(_locals['self'], [7, 50])
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))

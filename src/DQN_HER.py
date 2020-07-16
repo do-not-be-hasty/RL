@@ -102,6 +102,7 @@ class DQN_HER(OffPolicyRLModel):
         self.act = None
         self.proba_step = None
         self.replay_buffer = None
+        self.solved_replay_buffer = None
         self.beta_schedule = None
         self.exploration = None
         self.params = None
@@ -182,6 +183,7 @@ class DQN_HER(OffPolicyRLModel):
             else:
                 # self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
                 self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight)
+                self.solved_replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight, read_solved=True)
                 # self.replay_buffer = SimpleReplayBuffer(self.buffer_size)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.
@@ -339,7 +341,11 @@ class DQN_HER(OffPolicyRLModel):
                         (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
                         weights /= np.mean(weights)
                     else:
-                        obses_t, actions, rewards, obses_tp1, dones, info = self.replay_buffer.sample(self.batch_size)
+                        if np.random.randint(0, 2) < 10:  # always
+                            obses_t, actions, rewards, obses_tp1, dones, info = self.replay_buffer.sample(self.batch_size)
+                        else:
+                            obses_t, actions, rewards, obses_tp1, dones, info = self.solved_replay_buffer.sample(
+                                self.batch_size)
                         weights, batch_idxes = np.ones_like(rewards), None
 
                     if writer is not None:
@@ -473,6 +479,8 @@ class DQN_HER(OffPolicyRLModel):
     @classmethod
     def load(cls, load_path, env=None, **kwargs):
         data, params = cls._load_from_file(load_path)
+
+        print('loaded data:', data, 'kwargs:', kwargs)
 
         model = cls(policy=data["policy"], env=env, _init_setup_model=False)
         model.__dict__.update(data)
