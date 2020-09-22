@@ -14,6 +14,7 @@ tags = os.environ["PROJECT_TAG"].split(' ') if "PROJECT_TAG" in os.environ.keys(
 exp = Experiment(name='HER experiment',
                  script='python3 run.py',
                  # script='python3 dqn_scratch.py',
+                 # script='python3 dqn_episodic.py',
                  # script='python3 metric_scratch.py',
                  project=os.environ["PROJECT_QUALIFIED_NAME"],
                  tags=tags,

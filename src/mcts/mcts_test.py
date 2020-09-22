@@ -544,7 +544,7 @@ class TestDeterministicMCTSAgent(base.OnlineAgent):
         print('Hard eval started')
 
         env.env.scrambleSize = 100
-        env.env.step_limit = 100
+        env.env.step_limit = 150
         self._n_passes = 8000
 
         count = 0

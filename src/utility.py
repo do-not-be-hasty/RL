@@ -198,6 +198,24 @@ def log_rubik_infty(model, distances):
         neptune_logger('infty on {0}'.format(distance), distance_infty)
 
 
+def log_bitflipper_infty(model, distances):
+    env = copy.deepcopy(model.env)
+
+    def single_infty(model, env, distance):
+        env.reset()
+        env.goal = env.state
+        for i in range(distance):
+            env.step(env.action_space.sample())
+        obs = env.state
+        q_values = model.predict_q_values(
+            np.concatenate((obs, env.goal), axis=-1)).flatten()
+        return np.max(q_values)
+
+    for distance in distances:
+        distance_infty = np.mean([single_infty(model, env, distance) for _ in range(100)])
+        neptune_logger('infty on {0}'.format(distance), distance_infty)
+
+
 def log_rubik_ultimate_infty(model, distances):
     env = copy.deepcopy(model.env)
 
@@ -242,14 +260,14 @@ def callback(_locals, _globals):
         # neptune_logger('sampling beta', _locals['self'].replay_buffer._beta)
         # neptune_logger('sampling cut', _locals['self'].replay_buffer._sampling_cut)
 
-        log_rubik_curriculum_eval([10], _locals['self'], _locals['self'].env, neval=75, with_diversity=True, loop_break=True)
-        log_rubik_curriculum_eval([13, 16], _locals['self'], _locals['self'].env, neval=40)
+        log_rubik_curriculum_eval([5, 7, 10, 13, 16, 20, 25, 30], _locals['self'], _locals['self'].env, neval=30, with_diversity=True, loop_break=True)
+        # log_rubik_curriculum_eval([13, 16], _locals['self'], _locals['self'].env, neval=30)
         # log_rubik_curriculum_eval([7], _locals['self'], _locals['self'].env, loop_break=True)
-        log_rubik_ultimate_eval([7, 10], _locals['self'], _locals['self'].env, neval=20)
+        log_rubik_ultimate_eval([7, 10, 13, 16], _locals['self'], _locals['self'].env, neval=20)
 
-        # log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
+        log_rubik_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
         # log_rubik_infty(_locals['self'], [1, 5, 7, 10, 50])
-        # log_rubik_ultimate_infty(_locals['self'], [7, 50])
+        log_rubik_ultimate_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
         # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
@@ -263,15 +281,16 @@ def bitflipper_callback(_locals, _globals):
     if len(_locals['episode_rewards']) % interval == 0:
         neptune_logger('success rate', np.mean(_locals['episode_success']))
         neptune_logger('no exploration success rate',
-                       clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=10))
+                       clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=30))
         neptune_logger('exploration', _locals['update_eps'])
         ep_div = np.array(_locals['episode_div'])
         ep_succ = np.array(_locals['episode_success'])
-        # neptune_logger('success move diversity',
-        #                np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
+        neptune_logger('success move diversity',
+                       np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
         neptune_logger('failure move diversity',
                        np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
         neptune_logger('loss', np.mean(_locals['episode_losses']))
+        log_bitflipper_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
         # neptune_logger('loss_min', np.min(_locals['episode_losses']))
         # neptune_logger('loss_max', np.max(_locals['episode_losses']))
 

@@ -26,7 +26,7 @@ class MctsCheckpoint(core.TrainableNetwork):
 
         # NOTE 1k models
         # self.model = restore_HER_model('/home/michal/Projekty/RL/RL/resources/checkpoints_test_2020-05-30-06:27:16_120000.pkl', self.env)
-        self.model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-07-09-06:37:49_120000', self.env)
+        self.model = restore_HER_model('/home/plgrid/plgmizaw/checkpoints/checkpoints_test_2020-07-17-03:48:21_120000', self.env)
 
     def setup_model(self):
         self.model.setup_model()

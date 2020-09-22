@@ -211,7 +211,9 @@ class DQN_HER(OffPolicyRLModel):
             self.episode_reward = np.zeros((1,))
 
             for step in range(total_timesteps):
-                self.steps_made += 1
+                # self.steps_made += 1
+                # if step >= 7 * 100 * 150:
+                #     raise Exception("trigger")
                 # curriculum
                 # curriculum_scrambles = 1 + int(self.steps_made ** (0.50)) // 500
                 # curriculum_step_limit = min((curriculum_scrambles + 2) * 2, 100)
@@ -341,7 +343,7 @@ class DQN_HER(OffPolicyRLModel):
                         (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
                         weights /= np.mean(weights)
                     else:
-                        if np.random.randint(0, 2) < 10:  # always
+                        if np.random.randint(0, 100) < 100:  # always
                             obses_t, actions, rewards, obses_tp1, dones, info = self.replay_buffer.sample(self.batch_size)
                         else:
                             obses_t, actions, rewards, obses_tp1, dones, info = self.solved_replay_buffer.sample(
@@ -377,7 +379,6 @@ class DQN_HER(OffPolicyRLModel):
                         #     weights_sum = sum(loss_accumulator)
                         #     print('normalized ', ['%.2f' % (x / weights_sum) for x in loss_accumulator])
                         #     print('distance   ', info)
-                        self.replay_buffer.update_weights(loss_accumulator)
 
                     loss = np.mean(np.dot(weights, [huber(1., error) for error in td_errors]))
                     episode_losses.append(loss)

@@ -25,7 +25,6 @@ class ReplayBuffer(object):
         self._beta_growth = sampling_mean_growth
         self._beta_max = sampling_mean_max
         self._sampling_cut = sampling_cut
-        self._distance_weights = []
         self._contains_solved = read_solved
 
         if read_solved:
@@ -62,11 +61,6 @@ class ReplayBuffer(object):
     def set_sampling_cut(self, sampling_cut):
         self._sampling_cut = sampling_cut
 
-    def update_weights(self, weights):
-        if len(weights) < len(self._distance_weights):
-            weights += [0.] * (len(self._distance_weights) - len(weights))
-        self._distance_weights = weights
-
     # def add(self, obs_t, action, reward, obs_tp1, done):
     def add(self, episode):
         """
@@ -85,8 +79,6 @@ class ReplayBuffer(object):
                 self._beta = self._beta_max
 
         ep_range = self._next_idx + len(episode)
-        if len(self._distance_weights) < len(episode) + 1:
-            self._distance_weights += [0.] * (len(episode) + 1 - len(self._distance_weights))
 
         for d in episode:
             data = d + (ep_range,)
@@ -98,7 +90,6 @@ class ReplayBuffer(object):
 
     def _encode_sample(self, idxes, has_replaced_goal, batch_size):
         obses_t, actions, rewards, obses_tp1, dones, distances = [], [], [], [], [], []
-        prob = np.array(self._distance_weights) + 1e-1
 
         for it in range(len(idxes)):
             i = idxes[it]
@@ -136,9 +127,6 @@ class ReplayBuffer(object):
                 push_trans(obs_t['desired_goal'], true_replay=True)
                 continue
 
-            if ep_range <= i:
-                ep_range += self._maxsize
-
             if self._hindsight_curriculum:
                 offset = int(np.random.exponential(self._beta))%(ep_range - i)
             else:
@@ -156,9 +144,13 @@ class ReplayBuffer(object):
                 # else:
                 #     offset = ep_range - i - 1
 
-                offset = np.random.randint(0, ep_range - i)
+                if ep_range >= self._maxsize and i < (ep_range % self._maxsize):
+                    offset = np.random.randint(0, (ep_range % self._maxsize) - i)
+                else:
+                    offset = np.random.randint(0, ep_range - i)
 
-
+            if offset > 500:
+                print(sys.stderr, "--- INVALID OFFSET")
             distances.append(offset)
             _, _, _, new_obs, _, _ = self._storage[(i+offset) % self._maxsize]
             add_goal = new_obs['achieved_goal']

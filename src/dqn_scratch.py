@@ -211,11 +211,11 @@ class DQN:
     def __init__(self, env):
         self.network = None
         self.gamma = 0.98
-        self.learning_rate = 1e-3
+        self.learning_rate = 1e-4
         self.batch_size = 32
         self.env = env
         self.replay_buffer = ReplayBuffer(2000000)
-        self.update_target_freq = 1
+        self.update_target_freq = 10
         self.learning_start = 1000
         self.exploration = 0.01
         self.exploration_final_eps = 0.1
@@ -233,7 +233,7 @@ class DQN:
             layer = Flatten()(input)
         else:
             layer = input
-        layer_width = 256
+        layer_width = 1024
         layer = Dense(layer_width)(layer)
         layer = LayerNormalization()(layer)
         layer = Activation('relu')(layer)
@@ -310,15 +310,17 @@ class DQN:
                     neptune_logger('episodes', num_episode)
                     neptune_logger('reward', np.mean(episode_rewards))
                     neptune_logger('success rate', np.mean(episode_success))
-                    neptune_logger('no exploration success rate', evaluate_model(self, self.env, nevals=10))
+                    # neptune_logger('no exploration success rate', evaluate_model(self, self.env, nevals=10))
                     neptune_logger('diversity', np.mean(episode_diversities))
                     neptune_logger('exploration', exploration_plain_eps)
                     neptune_logger('loss', np.mean(losses))
-                    # log_rubik_curriculum_eval([1, 2, 3, 4, 5, 7], self, self.env, nevals=30)
-                    # log_mean_value(self, self.env, scrambles=1, nevals=30)
-                    # log_mean_value(self, self.env, scrambles=2, nevals=30)
-                    # log_mean_value(self, self.env, scrambles=3, nevals=30)
-                    # log_mean_value(self, self.env, scrambles=100, nevals=30)
+                    log_rubik_curriculum_eval([1, 2, 3, 4, 5, 7], self, self.env, nevals=30)
+                    log_mean_value(self, self.env, scrambles=1, nevals=30)
+                    log_mean_value(self, self.env, scrambles=2, nevals=30)
+                    log_mean_value(self, self.env, scrambles=3, nevals=30)
+                    log_mean_value(self, self.env, scrambles=5, nevals=30)
+                    log_mean_value(self, self.env, scrambles=7, nevals=30)
+                    log_mean_value(self, self.env, scrambles=50, nevals=30)
                     episode_rewards = []
                     episode_success = []
                     episode_diversities = []
@@ -392,8 +394,8 @@ class DQN:
 class HER(DQN):
     def __init__(self, env):
         super().__init__(env)
-        self.replay_buffer = MultistepHindsightReplayBuffer(2000000, self.gamma, multistep=2)
-        # self.replay_buffer = HindsightReplayBuffer(2000000)
+        # self.replay_buffer = MultistepHindsightReplayBuffer(2000000, self.gamma, multistep=2)
+        self.replay_buffer = HindsightReplayBuffer(2000000)
 
     def convert_observation(self, observation):
         return np.concatenate([observation['observation'], observation['desired_goal']], axis=-1)
@@ -429,8 +431,8 @@ def main():
     # env = gym.make("CartPole-v1")
     # env = gym.make("MountainCar-v0")
     # env = make_env_BitFlipper(n=5, space_seed=None)
-    env = make_env_GoalBitFlipper(n=5, space_seed=None)
-    # env = make_env_GoalRubik(step_limit=100, shuffles=100)
+    # env = make_env_GoalBitFlipper(n=5, space_seed=None)
+    env = make_env_GoalRubik(step_limit=100, shuffles=100)
     model = HER(env)
     # model.learn(100000 * 16 * 50)
     model.learn(120000000)

@@ -48,10 +48,20 @@ env = make_env_GoalRubik(step_limit=15)
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/colour_emb__2020-02-09-09:47:20_100000.pkl", env) # RUB-134
 # model = HER.load("/home/michal/Projekty/RL/RL/resources/colour_emb_longer_ep__2020-02-21-15:20:27_30000.pkl", env) # RUB-156
 
-model = HER.load("/home/michal/Projekty/RL/RL/resources/network_2k_2020-05-21-09:02:01_40000.pkl", env) # RUB-309
+model = HER.load("/home/michal/Projekty/RL/RL/resources/checkpoints_test_2020-07-17-03:48:21_120000.pkl", env)
 
 def simple_eval_Rubik(env):
-    for i in range(1, 10):
+    for i in range(1, 40):
+        env.config(render_cube=True, scramble_size=i)
+        env.step_limit = 2 * (i + 2)
+        print(i, "scrambles", clear_eval(model, env, 100), rubik_ultimate_eval(model, env, 100))
+
+    env.config(render_cube=True, scramble_size=7)
+    env.step_limit = 15
+
+
+def korf_eval_Rubik(env):
+    for i in range(1, 40):
         env.config(render_cube=True, scramble_size=i)
         env.step_limit = 2 * (i + 2)
         print(i, "scrambles", clear_eval(model, env, 100), rubik_ultimate_eval(model, env, 100))
@@ -61,7 +71,7 @@ def simple_eval_Rubik(env):
 
 
 def simple_eval_BitFlipper(env):
-    print(clear_eval(model, env, 1000))
+    print(clear_eval(model, env, 100))
 
 
 def watch_play(hold=False, sleep_scale=1.):
@@ -101,4 +111,4 @@ def watch_play(hold=False, sleep_scale=1.):
 
 
 simple_eval_Rubik(env)
-watch_play(hold=False, sleep_scale=0.2)
+# watch_play(hold=False, sleep_scale=0.2)

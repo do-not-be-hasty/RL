@@ -43,7 +43,7 @@ def HER_model(env):
         learning_rate=3e-5,
         buffer_size=2000000,
         exploration_fraction=0.01,
-        exploration_final_eps=0.1,
+        exploration_final_eps=0.05,
         gamma=0.98,
         verbose=1,
         loop_breaking=True,

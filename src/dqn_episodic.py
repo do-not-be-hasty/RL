@@ -36,6 +36,14 @@ def huber_loss_fn(**huber_loss_kwargs):
     return keras_huber_loss
 
 
+def metric_loss_fn(huber_weight, huber_delta):
+    def keras_metric_loss(y_true, y_pred):
+        x = y_true - y_pred
+        return K.mean(huber_weight * K.minimum(K.maximum(2 * huber_delta * K.abs(x) - huber_delta ** 2, huber_delta ** 2), x ** 2) + K.relu(x) ** 2)
+
+    return keras_metric_loss
+
+
 def evaluate_model(model, env, nevals=10):
     def single_eval(model, env):
         plain_observation = env.reset()
@@ -72,6 +80,23 @@ def log_mean_value(model, env, scrambles, nevals=10):
         values.append(model.predict_value(np.array([observation])))
 
     neptune_logger('infty on {0}'.format(scrambles), np.mean(values))
+
+
+def log_metric_values(model, env, scrambles, nevals=10):
+    def single_log_metric_values(model, env, scramble, nevals):
+        eval_env = copy.deepcopy(env)
+        eval_env.config(scramble_size=scramble)
+        values = []
+
+        for _ in range(nevals):
+            plain_observation = eval_env.reset()
+            observation = model.convert_observation(plain_observation)
+            values.append(np.max(model.metric_network.predict(np.array([observation])), axis=-1))
+
+        neptune_logger('metric for {0}'.format(scramble), np.mean(values))
+
+    for scramble in scrambles:
+        single_log_metric_values(model, env, scramble, nevals)
 
 
 class ReplayBuffer:
@@ -122,13 +147,14 @@ class HindsightReplayBuffer:
             self.index = (self.index + 1) % self.max_size
 
     def sample(self, batch_size):
-        observations, actions, nexts, rewards, dones, ranges, steps = [], [], [], [], [], [], []
+        observations, actions, nexts, rewards, dones, ranges, distances = [], [], [], [], [], [], []
 
         for _ in range(batch_size):
             transition_idx = np.random.randint(0, len(self.storage))
             observation, action, next, _, _, episode_range = self.storage[transition_idx]
 
             goal_idx = np.random.randint(transition_idx, episode_range)
+            distances.append(goal_idx - transition_idx)
             goal_idx = goal_idx % self.max_size
             _, _, goal_observation, _, _, _ = self.storage[goal_idx]
 
@@ -139,72 +165,10 @@ class HindsightReplayBuffer:
             nexts.append(add_goal(next, goal_observation))
             rewards.append(reward)
             dones.append(np.array_equal(next, goal_observation))
-            steps.append(1)
 
         return np.array(observations), np.array(actions), np.array(nexts), np.array(rewards), np.array(dones), \
-               np.array(steps)
+               np.array(distances)
 
-
-class MultistepHindsightReplayBuffer:
-    def __init__(self, size, gamma, multistep=1):
-        self.storage = []
-        self.max_size = size
-        self.index = 0
-        self.multistep = multistep
-        self.rewards_list = [(1 - gamma ** i) / (gamma - 1) for i in range(self.multistep + 1)]
-
-    def add(self, episode):
-        episode_range = self.index + len(episode)
-
-        for transition in episode:
-            if len(self.storage) < self.max_size:
-                self.storage.append(transition + (episode_range,))
-            else:
-                self.storage[self.index] = (transition + (episode_range,))
-
-            self.index = (self.index + 1) % self.max_size
-
-    def sample(self, batch_size):
-        observations, actions, nexts, rewards, dones, ranges, steps = [], [], [], [], [], [], []
-
-        for _ in range(batch_size):
-            while True:
-                step = np.random.randint(0, self.multistep)
-                transition_idx = np.random.randint(0, len(self.storage))
-                observation, action, next, _, _, episode_range = self.storage[transition_idx]
-
-                goal_idx = np.random.randint(transition_idx, episode_range)
-                next_idx = transition_idx + step
-                if next_idx > goal_idx:
-                    next_idx = goal_idx
-                goal_idx = goal_idx % self.max_size
-                next_idx = next_idx % self.max_size
-                _, _, goal_observation, _, _, _ = self.storage[goal_idx]
-                _, _, next, _, _, _ = self.storage[next_idx]
-
-                for i in range(step):
-                    _, _, middle, _, _, _ = self.storage[(transition_idx + i) % self.max_size]
-                    if np.array_equal(middle, next) or np.array_equal(middle, goal_observation):
-                        next = middle
-                        step = i
-                        break
-
-                reward = self.rewards_list[step] if np.array_equal(next['achieved_goal'], goal_observation[
-                    'achieved_goal']) else self.rewards_list[step + 1]
-
-                if np.array_equal(observation['achieved_goal'], next['achieved_goal']):
-                    continue
-
-                observations.append(add_goal(observation, goal_observation))
-                actions.append(action)
-                nexts.append(add_goal(next, goal_observation))
-                rewards.append(reward)
-                dones.append(np.array_equal(next, goal_observation))
-                steps.append(step + 1)
-                break
-
-        return np.array(observations), np.array(actions), np.array(nexts), np.array(rewards), np.array(dones), \
-               np.array(steps)
 
 
 class DQN:
@@ -222,10 +186,12 @@ class DQN:
 
         self.step = 0
         self.maxloss = (0, None)
+        self.reward_converter = np.array([(1 - self.gamma ** i) / (self.gamma - 1) for i in range(500)])
 
         self.optimizer = None
         self.network = self.setup_network()
         self.target_network = self.setup_network(dummy=True)
+        self.metric_network = self.setup_metric_network()
 
     def setup_network(self, dummy=False):
         input = Input(shape=self.env.observation_space.shape)
@@ -262,6 +228,39 @@ class DQN:
 
         if not dummy:
             network.summary()
+
+        return network
+
+    def setup_metric_network(self):
+        input = Input(shape=self.env.observation_space.shape)
+        if len(self.env.observation_space.shape) > 1:
+            layer = Flatten()(input)
+        else:
+            layer = input
+        layer_width = 1024
+        layer = Dense(layer_width)(layer)
+        layer = LayerNormalization()(layer)
+        layer = Activation('relu')(layer)
+        layer = Dense(layer_width)(layer)
+        layer = LayerNormalization()(layer)
+        features = Activation('relu')(layer)
+
+        value = Dense(layer_width)(features)
+        value = LayerNormalization()(value)
+        value = Activation('relu')(value)
+        value = Dense(1)(value)
+
+        advantage = Dense(layer_width)(features)
+        advantage = LayerNormalization()(advantage)
+        advantage = Activation('relu')(advantage)
+        advantage = Dense(self.env.action_space.n, activation='linear')(advantage)
+
+        output = Lambda(lambda x: x[0] + (x[1] - K.expand_dims(K.mean(x[1], axis=1), axis=1)))([value, advantage])
+
+        network = Model(inputs=input, outputs=output)
+        optimizer = Adam(lr=self.learning_rate)
+        # network.compile(loss='mean_squared_error', optimizer=optimizer)
+        network.compile(loss=metric_loss_fn(huber_weight=0.01, huber_delta=1.0), optimizer=optimizer)
 
         return network
 
@@ -321,6 +320,7 @@ class DQN:
                     log_mean_value(self, self.env, scrambles=5, nevals=30)
                     log_mean_value(self, self.env, scrambles=7, nevals=30)
                     log_mean_value(self, self.env, scrambles=50, nevals=30)
+                    log_metric_values(self, self.env, scrambles=[1, 2, 3, 5, 7, 50], nevals=30)
                     episode_rewards = []
                     episode_success = []
                     episode_diversities = []
@@ -355,14 +355,13 @@ class DQN:
             return np.argmax(self.network.predict(np.array([observation]))[0], axis=-1)
 
     def train_step(self):
-        observations, actions, nexts, rewards, dones, steps = self.replay_buffer.sample(self.batch_size)
-        gammas = self.gamma ** steps
+        observations, actions, nexts, rewards, dones, distances = self.replay_buffer.sample(self.batch_size)
 
         network_next_q = self.network.predict(nexts)
         target_next_q = self.target_network.predict(nexts)
 
         values = np.transpose(
-            [target_next_q[np.arange(len(nexts)), np.argmax(network_next_q, axis=-1)] * gammas * (
+            [target_next_q[np.arange(len(nexts)), np.argmax(network_next_q, axis=-1)] * self.gamma * (
                     1. - dones) + rewards])
 
         actions_ind = np.eye(self.env.action_space.n)[actions]
@@ -371,10 +370,20 @@ class DQN:
         target_q = self.target_network.predict(observations)
         targets = target_q * noactions_ind + actions_ind * values
 
-        # print('debug')
-        # print(observations)
-        # print(targets)
+        # metrics = self.metric_network.predict(observations)
+        # distances = np.expand_dims(distances, axis=-1)
+        # distances = self.reward_converter[distances]
+        # targets_metric = metrics * noactions_ind + actions_ind * distances
 
+        metrics = np.repeat(distances[:, np.newaxis], self.env.action_space.n, axis=-1) + 2
+        distances = np.expand_dims(distances, axis=-1)
+        targets_metric = (metrics * noactions_ind + actions_ind * distances).astype(int)
+        targets_metric = self.reward_converter[targets_metric]
+
+        metric_q = self.metric_network.predict(observations)
+        targets = targets * 0.95 + metric_q * 0.05
+
+        self.update_metric(observations, targets_metric)
         return self.update_weights(observations, targets)
 
     def update_weights(self, data, target):
@@ -384,6 +393,9 @@ class DQN:
         return loss
         # self.network.fit(x=data, y=target, epochs=10, verbose=0)
         # return 0
+
+    def update_metric(self, data, target):
+        self.metric_network.train_on_batch(x=data, y=target)
 
     def update_target(self):
         for (model_layer, target_layer) in zip(self.network.layers, self.target_network.layers):
@@ -432,7 +444,7 @@ def main():
     # env = gym.make("MountainCar-v0")
     # env = make_env_BitFlipper(n=5, space_seed=None)
     # env = make_env_GoalBitFlipper(n=5, space_seed=None)
-    env = make_env_GoalRubik(step_limit=100, shuffles=100)
+    env = make_env_GoalRubik(step_limit=50, shuffles=100)
     model = HER(env)
     # model.learn(100000 * 16 * 50)
     model.learn(120000000)

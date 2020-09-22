@@ -25,6 +25,17 @@ def cube_bin_to_str(binary_obs):
     string_obs = ''.join([cube_labels()[label] for label in np.where(sticker_list)[1]])
     return string_obs
 
+def koc_to_korf(cube):
+    res = cube[0:4] + cube[5:12] + cube[18:21] + cube[27:30] + cube[36:39] + cube[12] + cube[14] + cube[21] + cube[23] + \
+    cube[30] + cube[32] + cube[39] + cube[41] + cube[15:18] + cube[24:27] + cube[33:36] + cube[42:49] + cube[50:54]
+    res = res.replace('y', 'R')
+    res = res.replace('b', 'B')
+    res = res.replace('r', 'W')
+    res = res.replace('g', 'G')
+    res = res.replace('o', 'Y')
+    res = res.replace('w', 'O')
+    return res
+
 
 def quarterize(moves):
     quarter_moves = []

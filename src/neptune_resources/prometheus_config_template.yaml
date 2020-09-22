@@ -21,6 +21,7 @@
      account: plgplanningrl2
      backend_type: slurm
      cmd_type: sbatch
+     #partition: bigmem
      partition: standard
      time: 4320
      cpu: 24
