@@ -27,7 +27,7 @@
      cpu: 24
      mem: 100G
      nodes: 1
-     singularity_container: -B /mnt/lustre/scratch/<username>/mrunner_scratch/rubik:/rubik /home/plgrid/<username>/singularity/development
+     singularity_container: -H $PWD:/homeplaceholder /home/plgrid/<username>/singularity/development
      slurm_url: <username>@eagle.man.poznan.pl
      storage_dir: /tmp/lustre/<username>
 

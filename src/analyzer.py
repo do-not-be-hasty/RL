@@ -4,7 +4,6 @@ import tensorflow as tf
 
 from DQN_HER import DQN_HER as HER
 from environment_builders import make_env_GoalRubik, make_env_GoalBitFlipper
-from models import HER_model
 import numpy as np
 from utility import clear_eval, model_summary, rubik_ultimate_eval
 

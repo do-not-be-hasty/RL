@@ -53,15 +53,15 @@ class DQN_HER(OffPolicyRLModel):
     :param _init_setup_model: (bool) Whether or not to build the network at the creation of the instance
     """
 
-    def __init__(self, policy, env, hindsight=4, gamma=0.99, learning_rate=5e-4, buffer_size=50000,
-                 exploration_fraction=0.1,
-                 exploration_final_eps=0.02, train_freq=1, batch_size=32, checkpoint_freq=10000, checkpoint_path=None,
+    def __init__(self, policy, env, hindsight, gamma=0.98, learning_rate=5e-4, buffer_size=2000000,
+                 exploration_fraction=0.01,
+                 exploration_final_eps=0.05, train_freq=1, batch_size=32, checkpoint_freq=10000, checkpoint_path=None,
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
                  beta_fraction=1.0,
-                 prioritized_replay_eps=1e-6, param_noise=False, verbose=0, tensorboard_log=None,
+                 prioritized_replay_eps=1e-6, param_noise=False, verbose=1, tensorboard_log=None,
                  _init_setup_model=True, model_save_path="saved_model", model_save_episode_freq=-1, loop_breaking=True,
-                 multistep=6, boltzmann=False):
+                 multistep=1, boltzmann=False):
 
         # TODO: replay_buffer refactoring
         super(DQN_HER, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
@@ -183,7 +183,7 @@ class DQN_HER(OffPolicyRLModel):
             else:
                 # self.replay_buffer = ReplayBuffer(self.buffer_size, gamma=self.gamma, hindsight=self.hindsight, multistep=self.multistep)
                 self.replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight)
-                self.solved_replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight, read_solved=True)
+                self.solved_replay_buffer = EpisodeReplayBuffer(self.buffer_size, hindsight=self.hindsight)
                 # self.replay_buffer = SimpleReplayBuffer(self.buffer_size)
                 self.beta_schedule = None
             # Create the schedule for exploration starting from 1.

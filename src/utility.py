@@ -290,7 +290,7 @@ def bitflipper_callback(_locals, _globals):
         neptune_logger('failure move diversity',
                        np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
         neptune_logger('loss', np.mean(_locals['episode_losses']))
-        log_bitflipper_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
+        # log_bitflipper_infty(_locals['self'], [1, 2, 3, 5, 7, 10, 13, 18, 50])
         # neptune_logger('loss_min', np.min(_locals['episode_losses']))
         # neptune_logger('loss_max', np.max(_locals['episode_losses']))
 
@@ -308,6 +308,24 @@ def bitflipper_callback(_locals, _globals):
 
         # neptune_logger('weight sum', sum(_locals['loss_accumulator']))
         # log_distance_weights([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20], _locals['loss_accumulator'], sum(_locals['loss_accumulator']))
+
+    return False
+
+
+def maze_callback(_locals, _globals):
+    interval = 100 if _locals['log_interval'] is None else _locals['log_interval']
+
+    if len(_locals['episode_rewards']) % interval == 0:
+        neptune_logger('success rate', np.mean(_locals['episode_success']))
+        neptune_logger('no exploration success rate',
+                       clear_eval(_locals['self'], copy.deepcopy(_locals['self'].env), neval=30))
+        neptune_logger('exploration', _locals['update_eps'])
+        ep_div = np.array(_locals['episode_div'])
+        ep_succ = np.array(_locals['episode_success'])
+        neptune_logger('success move diversity',
+                       np.sum(ep_div * ep_succ) / np.sum(ep_succ) if np.sum(ep_succ) != 0 else 0)
+        neptune_logger('failure move diversity',
+                       np.sum(ep_div * (1 - ep_succ)) / np.sum(1 - ep_succ) if np.sum(1 - ep_succ) != 0 else 0)
 
     return False
 
