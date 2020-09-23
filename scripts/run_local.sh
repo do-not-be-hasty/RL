@@ -3,7 +3,7 @@
 set -e # stop on any error
 
 if [ "$#" -ne 2 ]; then
-    echo "Usage: ./scripts/run_mrunner [project_name] [project_description]"
+    echo "Usage: ./scripts/run_local [project_name] [project_description]"
     exit 1
 fi
 
