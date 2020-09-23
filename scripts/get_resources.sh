@@ -8,6 +8,10 @@ SCRIPT_DIR=$(pwd)
 PROJECT_DIR=${SCRIPT_DIR}/..
 RES_DIR=${PROJECT_DIR}/resources
 
+if [ ! -f "$SCRIPT_DIR/export_api_token.sh" ]; then
+        cp "$SCRIPT_DIR/export_api_token_template.sh" "$SCRIPT_DIR/export_api_token.sh"
+fi
+
 if [ ! -d "$RES_DIR" ]; then
 	mkdir "$RES_DIR"
 fi
@@ -33,7 +37,7 @@ if [ ! -d "$RES_DIR/environment/gym-rubik" ]; then
 	$PYTHON -m pip install -e "$RES_DIR/environment/gym-rubik"
 fi
 
-if [ ! -d "$RES_DIR/environment/planning" ]; then
-	git clone https://gitlab.com/awarelab/planning.git
-	$PYTHON -m pip install -e "$RES_DIR/environment/planning"
-fi
+#if [ ! -d "$RES_DIR/environment/planning" ]; then
+#	git clone https://gitlab.com/awarelab/planning.git
+#	$PYTHON -m pip install -e "$RES_DIR/environment/planning"
+#fi

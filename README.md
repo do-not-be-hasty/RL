@@ -16,7 +16,7 @@ Most important files contain:
 * `DQN_HER.py` - implementation for main loop of the training algorithm.
 * `episode_replay_buffer.py` - replay buffer, which apart from storing the experience manages goal assignment.
 
-Having the desired experiment set in `run.py`, run it with the command `./scripts/run_local.sh`.
+Having the desired experiment set in `run.py`, run it with the command `./scripts/run_local.sh ANONYMOUS "test"`.
 This script prepares a virtual envirorenment and runs the selected experiment locally.
 The results can be send to [neptune](https://ui.neptune.ai) for visualization.
 
@@ -31,13 +31,12 @@ Detailed results can be found [here](https://ui.neptune.ai/do-not-be-hasty/rubik
 In case of the benchmarks, the proposed implementation of HER easily reaches almost perfect success rate:
 * maze 10x10 [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-812/charts]
 * maze 30x30 [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-811/charts]
-* maze 50x50 [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-813/charts]
+* maze 60x60 [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-815/charts]
 * BitFlipper, 10 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-807/charts]
 * BitFlipper, 50 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-808/charts]
-* BitFlipper, 200 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-809/charts]
-* BitFlipper, 1000 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-810/charts]
+* BitFlipper, 200 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-820/charts]
 
-Note that the last example is far more than showed in [HER](https://arxiv.org/pdf/1707.01495.pdf), though the authors did not aim to optimize this particular task.
+Note that the last example is far more difficult than showed in [HER](https://arxiv.org/pdf/1707.01495.pdf), though the authors did not aim to optimize this particular task.
 
 ## Code ownership
 The main loop of training is based on DQN implementation from [stable baselines](https://github.com/hill-a/stable-baselines).

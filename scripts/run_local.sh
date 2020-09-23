@@ -22,7 +22,7 @@ PROJECT_NAME=$1
 # Currently, pending projects are rubik and sokoban
 # Add here if new appear
 
-if [[ "$PROJECT_NAME" =~ ^(sokoban|rubik)$ ]]; then
+if [[ "$PROJECT_NAME" =~ ^(sokoban|rubik|ANONYMOUS)$ ]]; then
     echo "Running $PROJECT_NAME project"
 else
     echo "\"$PROJECT_NAME\" is not a valid project name"
