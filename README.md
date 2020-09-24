@@ -42,7 +42,7 @@ In case of the benchmarks, the proposed implementation of HER easily reaches alm
 * maze 60x60 [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-815/charts]
 * BitFlipper, 10 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-807/charts]
 * BitFlipper, 50 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-808/charts]
-* BitFlipper, 200 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-821/charts]
+* BitFlipper, 200 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-822/charts]
 
 Note that the last example is far more difficult than showed in [HER](https://arxiv.org/pdf/1707.01495.pdf), though the authors did not aim to optimize this particular task.
 
