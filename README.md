@@ -9,14 +9,21 @@ This repository allows to run the HER algorithm on the Rubik's Cube environment,
 Additionally, it provides two benchmark goal-oriented environments - simple grid maze in which the agent has to reach the target field in a maze and BitFlipper environment in which the agent can change the values of *n* bits and has to reach the target configuration.
 The latter was proposed by the authors of HER and used as a motivating example for their work.
 
-All the sources are located in `src` directory.
+All the sources are located in `src/` directory.
 Most important files contain:
 * `run.py` - main function which selects the experiment to run and specifies its complexity.
 * `learning_configurations.py` - specifies all the parameters of training, including its length, learning rate, exploration etc.
+* `episode_replay_buffer.py` - replay buffer, which apart from storing the experience manages goal assignment for replays.
 * `DQN_HER.py` - implementation for main loop of the training algorithm.
-* `episode_replay_buffer.py` - replay buffer, which apart from storing the experience manages goal assignment.
+Base for this file, namely the vanilla DQN algorithm, was adapted from [stable baselines](https://github.com/hill-a/stable-baselines) repository.
+At the time of creating this project the HER technique was not implemented in stable baselines yet.
+The changes are mostly connected with adapting to goal-oriented observations, since the goal assignment is handled by the replay buffer.
+* `utility.py` - evaluators of performance, training matrics and helper functions.
 
-Having the desired experiment set in `run.py`, run it with the command `./scripts/run_local.sh ANONYMOUS "test"`.
+Having the desired experiment set in `run.py`, run it with the command
+```
+./scripts/run_local.sh ANONYMOUS "test"
+```
 This script prepares a virtual envirorenment and runs the selected experiment locally.
 The results can be send to [neptune](https://ui.neptune.ai) for visualization.
 
@@ -27,6 +34,7 @@ Though the progress decreases with time, after 1500000 training episodes its per
 ![Success rate](https://github.com/do-not-be-hasty/RL/blob/master/chart_ncubes.png)
 The agent successfully solves moderately scrambled cubes, but still solves only few completely random instances.
 Detailed results can be found [here](https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-775/charts).
+Note that this level of performance is reached by an agent which observed hardly any successful episode during training.
 
 In case of the benchmarks, the proposed implementation of HER easily reaches almost perfect success rate:
 * maze 10x10 [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-812/charts]
@@ -34,13 +42,14 @@ In case of the benchmarks, the proposed implementation of HER easily reaches alm
 * maze 60x60 [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-815/charts]
 * BitFlipper, 10 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-807/charts]
 * BitFlipper, 50 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-808/charts]
-* BitFlipper, 200 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-820/charts]
+* BitFlipper, 200 bits [https://ui.neptune.ai/do-not-be-hasty/rubik/e/RUB-821/charts]
 
 Note that the last example is far more difficult than showed in [HER](https://arxiv.org/pdf/1707.01495.pdf), though the authors did not aim to optimize this particular task.
 
 ## Code ownership
-The main loop of training is based on DQN implementation from [stable baselines](https://github.com/hill-a/stable-baselines).
+The main loop of training and replay buffer is based on DQN implementation from [hill-a/stable-baselines](https://github.com/hill-a/stable-baselines).
 The Rubik's Cube environment is taken from [do-not-be-hasty/gym-rubik](https://github.com/do-not-be-hasty/gym-rubik), which was forked from [yoavain/gym-rubik](https://github.com/yoavain/gym-rubik).
 The BitFlipper environment is taken from [do-not-be-hasty/BitFlipper](https://github.com/do-not-be-hasty/BitFlipper), which is a fork of [JoyChopra1298/BitFlipper](https://github.com/JoyChopra1298/BitFlipper).
 The maze environment is taken from [do-not-be-hasty/mazelab](https://github.com/do-not-be-hasty/mazelab), a fork of [zuoxingdong/mazelab](https://github.com/zuoxingdong/mazelab).
-The remaining code was developed by the author.
+The remaining relevant parts of the code were developed by the author, with most important: modifications of DQN training loop for using hindsight in `DQN_HER.py` and replay buffer in `episode_replay_buffer.py`, performance evaluators and other metrics in `utility.py`, experiments configurations in `learning_configurations.py`, Q-network architectures in `networks.py` and others.
+My total contribution to this project amounts to about 2000 lines of code.
